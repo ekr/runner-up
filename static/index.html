@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPX Track Comparison</title>
+    <meta charset="utf-8" />
+    <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css"> <style>
+    </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+    <div id="slider-container">
+        <input type="range" id="time-slider" min="0" max="100" value="0">
+    </div>
+    <div id="legend-container"></div>
+    <template id="legend-line">
+      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+        <div id="legend-icon" style="background-color: red; width: 20px; height: 20px; margin-right: 5px;"></div>
+        <span id="legend-text"></span>
+      </div>
+    </template>
+    
+    </div>
+    <div id="graph"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="gpx.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
