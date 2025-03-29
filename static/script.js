@@ -18,7 +18,6 @@ function createLegend() {
     legendContainer.appendChild(clone);
   }
 
-  legendContainer.style.position = "absolute";
   legendContainer.style.top = "10px";
   legendContainer.style.right = "10px";
   legendContainer.style.backgroundColor = "white";
@@ -111,6 +110,67 @@ function drawGraph(currentTime) {
         stroke: (d) => d.trackDate,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
+      Plot.text([{ x: currentTime, y: 0, label: "XXX" }], {
+        x: "x",
+        y: "y",
+        text: "label",
+      }),
+    ],
+    x: {
+      type: "linear",
+      label: "Time (s)",
+    },
+    y: {
+      label: "Distance Difference (m)",
+    },
+  });
+
+  const graphContainer = document.getElementById("graph");
+  while (graphContainer.children.length) {
+    graphContainer.removeChild(graphContainer.children[0]);
+  }
+  graphContainer.appendChild(chart);
+}
+
+function drawGraphTime() {
+  if (tracks.length < 2) {
+    return;
+  }
+
+  let timeDifferences = [];
+  const graphStart = minTime;
+  const graphEnd = tracks.reduce(
+    (a, c) => Math.min(a, c[c.length - 1].time),
+    Infinity,
+  );
+  let comparisonTracks = tracks.slice(1);
+
+  for (let t = graphStart; t <= graphEnd; t += 1) {
+    const baseline = getPositionAtTime(tracks[0], t);
+    const distance = getDistanceAtTime(tracks[0], t);
+
+    comparisonTracks.map((track) => {
+      const time = findClosestTimeToPosition(track, t, distance, baseline);
+      timeDifferences.push({
+        time: t,
+        diff: time - t,
+        trackDate: getStartDate(track),
+      });
+    });
+  }
+  const chart = Plot.plot({
+    marks: [
+      Plot.line(distanceDifferences, {
+        x: "time",
+        y: "diff",
+        stroke: (d) => d.trackDate,
+      }),
+      Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
+      Plot.text([{ x: currentTime, y: 0, label: "XXX" }], {
+        x: "x",
+        y: "y",
+        text: "label",
+      }),
     ],
     x: {
       type: "linear",
@@ -147,6 +207,18 @@ function addFileListener(name) {
   });
 }
 
+// Function to fetch and display a GPX track
+function fetchGPXTrack(url) {
+  fetch(url)
+    .then((response) => response.text())
+    .then((gpxData) => {
+      const track = parseGPX(gpxData);
+      tracks.push(track);
+      updateTracks();
+    })
+    .catch((error) => console.error("Error loading GPX:", error));
+}
+
 // Initialize Leaflet map
 const map = L.map("map").setView([0, 0], 2); // Set initial view to a very zoomed out view.
 
@@ -155,5 +227,13 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
+
+// If there is a
+const url = new URL(window.location);
+if (url.hash == "#test") {
+  console.log("Test mode");
+  fetchGPXTrack("track1.gpx");
+  fetchGPXTrack("track2.gpx");
+}
 
 addFileListener("track");

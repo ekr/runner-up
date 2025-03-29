@@ -109,6 +109,46 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   return d;
 }
 
+function findClosestTimeToPosition(
+  track,
+  otherTime,
+  otherDistance,
+  otherPoint,
+) {
+  const currentDistance = getDistanceAtTime(track, otherTime);
+  const step = currentDistance > otherDistance ? -1 : 1;
+  let index;
+
+  // Find the starting index.
+  for (index = 0; index < track.length; index++) {
+    if (track[index].time > otherTime) {
+      break;
+    }
+  }
+  if (index == track.length) {
+    // TODO: Fix this.
+    return undefined;
+  }
+
+  let bestDistance = Infinity;
+  // Now scrub in the right direction.
+  while (index > 0 && index < track.length) {
+    const distance = getDistanceFromLatLonInKm(
+      otherPoint[0],
+      otherPoint[1],
+      track[index].lat,
+      track[index].lon,
+    );
+    if (distance > bestDistance) {
+      return track[index].time;
+    }
+    bestDistance = distance;
+    index += step;
+  }
+
+  return undefined;
+}
+
 function deg2rad(deg) {
   return deg * (Math.PI / 180);
 }
