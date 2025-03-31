@@ -112,12 +112,19 @@ function drawGraphs(currentTime) {
       currentTime,
       "time",
       "normalizedDistance",
-      "Distance Difference (m)",
+      "Distance Behind (m)",
+      (v) => -1 * v,
     );
   }
 }
 
-function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
+function drawDifferenceGraph(
+  currentTime,
+  x_name,
+  y_name,
+  y_label,
+  transform = (v) => v,
+) {
   if (tracks.length < 2) {
     return;
   }
@@ -139,7 +146,7 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
       const comparator = getValueAtPosition(track, x_name, x_value, y_name);
       differences.push({
         time: t,
-        diff: comparator - baseline,
+        diff: transform(comparator) - transform(baseline),
         trackDate: getStartDate(track),
       });
     });
