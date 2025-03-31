@@ -57,7 +57,12 @@ function updateMarkers() {
       }
     }
   }
-  drawGraphTime(currentTime);
+  drawDifferenceGraph(
+    currentTime,
+    "normalizedDistance",
+    "time",
+    "Time Difference (s)",
+  );
 }
 
 function updateTracks() {
@@ -79,12 +84,12 @@ function updateTracks() {
   initializeSlider();
 }
 
-function drawGraph(currentTime) {
+function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
   if (tracks.length < 2) {
     return;
   }
 
-  let distanceDifferences = [];
+  let differences = [];
   const graphStart = minTime;
   const graphEnd = tracks.reduce(
     (a, c) => Math.min(a, c[c.length - 1].time),
@@ -93,105 +98,41 @@ function drawGraph(currentTime) {
   let comparisonTracks = tracks.slice(1);
 
   for (let t = graphStart; t <= graphEnd; t += 1) {
-    const baseline = getDistanceAtTime(tracks[0], t);
+    const baseline = tracks[0][t][y_name];
+    const x_value =
+      x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
+
     comparisonTracks.map((track) => {
-      const distance = getDistanceAtTime(track, t);
-      const distanceDiff = distance - baseline;
-      distanceDifferences.push({
+      const comparator = getValueAtPosition(track, x_name, x_value, y_name);
+      differences.push({
         time: t,
-        diff: distanceDiff,
+        diff: comparator - baseline,
         trackDate: getStartDate(track),
       });
     });
   }
+
   const chart = Plot.plot({
     marks: [
-      Plot.line(distanceDifferences, {
+      Plot.line(differences, {
         x: "time",
         y: "diff",
         stroke: (d) => d.trackDate,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      Plot.text([{ x: currentTime, y: 0, label: (d) => d.diff }], {
+      /*
+      Plot.text([{ x: currentTime, y: 0, label: "Diff" }], {
         x: "x",
         y: "y",
         text: "label",
-      }),
+      }),*/
     ],
     x: {
       type: "linear",
       label: "Time (s)",
     },
     y: {
-      label: "Distance Difference (m)",
-    },
-  });
-
-  const graphContainer = document.getElementById("graph");
-  while (graphContainer.children.length) {
-    graphContainer.removeChild(graphContainer.children[0]);
-  }
-  graphContainer.appendChild(chart);
-}
-
-function drawGraphTime(currentTime) {
-  if (tracks.length < 2) {
-    return;
-  }
-
-  let timeDifferences = [];
-  const graphStart = minTime;
-  const graphEnd = tracks.reduce(
-    (a, c) => Math.min(a, c[c.length - 1].time),
-    Infinity,
-  );
-  let comparisonTracks = tracks.slice(1);
-
-  for (let t = graphStart; t <= graphEnd; t += 1) {
-    const distance = getValueAtPosition(
-      tracks[0],
-      "time",
-      t,
-      "normalizedDistance",
-    );
-
-    comparisonTracks.map((track) => {
-      const time = getValueAtPosition(
-        track,
-        "normalizedDistance",
-        distance,
-        "time",
-      );
-
-      timeDifferences.push({
-        time: t,
-        diff: time - t,
-        trackDate: getStartDate(track),
-      });
-    });
-  }
-
-  console.log(timeDifferences);
-  const chart = Plot.plot({
-    marks: [
-      Plot.line(timeDifferences, {
-        x: "time",
-        y: "diff",
-        stroke: (d) => d.trackDate,
-      }),
-      Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      Plot.text([{ x: currentTime, y: 0 }], {
-        x: "x",
-        y: "y",
-        text: "label",
-      }),
-    ],
-    x: {
-      type: "linear",
-      label: "Time (s)",
-    },
-    y: {
-      label: "Time Difference (s)",
+      label: y_label,
     },
   });
 
