@@ -110,6 +110,109 @@ function getNormalizedDistanceAtTime(track, time) {
   return 0; // Default to 0 if time is before the first point
 }
 
+// Thanks, Gemini.
+/**
+ * Linearly interpolates a value using an ESTIMATION + LOCAL SEARCH strategy
+ * to find bracketing points. Assumes monotonically increasing positions.
+ *
+ * @param {Array<Object>} track - The array of data objects.
+ * @param {string} positionField - Field name for position.
+ * @param {number} targetPosition - The position to interpolate at.
+ * @param {string} valueField - Field name for the value.
+ * @returns {number | null} Interpolated value or null.
+ */
+function getValueAtPosition(track, positionField, targetPosition, valueField) {
+  // --- Input Validation and Edge Cases (O(1)) ---
+  if (!track || track.length === 0) {
+    console.warn("Interpolation track is empty or invalid.");
+    return null;
+  }
+  const firstEntry = track[0];
+  const lastEntry = track[track.length - 1];
+  const minPos = firstEntry[positionField];
+  const maxPos = lastEntry[positionField];
+
+  if (targetPosition <= minPos) {
+    return firstEntry[valueField];
+  }
+  if (targetPosition >= maxPos) {
+    return lastEntry[valueField];
+  }
+
+  // --- Optimized Search for Bracketing Indices ---
+
+  let lowerIndex = 0;
+  let upperIndex = track.length - 1;
+
+  // Handle case where all positions are the same (and targetPosition matches)
+  if (maxPos === minPos) {
+    // Since targetPosition is > minPos and < maxPos is impossible here,
+    // this case shouldn't be reached due to edge checks above.
+    // But if it were possible, return the value.
+    return firstEntry[valueField];
+  }
+
+  // Estimate starting index based on relative position
+  const relativePos = (targetPosition - minPos) / (maxPos - minPos);
+  // Ensure estimated index is within bounds [0, track.length - 1]
+  let currentIndex = Math.max(
+    0,
+    Math.min(track.length - 1, Math.floor(relativePos * (track.length - 1))),
+  );
+
+  // If we got lucky, return the exact value.
+  if (track[currentIndex][positionField] === targetPosition) {
+    return track[currentIndex][valueField];
+  }
+
+  // Search outwards from the estimated index
+  if (track[currentIndex][positionField] < targetPosition) {
+    // Target is likely AFTER currentIndex. Search FORWARD.
+    lowerIndex = currentIndex; // Current is a potential lower bound
+    // Start searching from the next element
+    for (let i = currentIndex + 1; i < track.length; i++) {
+      if (track[i][positionField] >= targetPosition) {
+        upperIndex = i; // Found the upper bound
+        break;
+      }
+      lowerIndex = i; // Update lower bound as we go
+    }
+    // If loop finishes, upperIndex remains track.length - 1 (covered by edge case)
+  } else {
+    // track[currentIndex][positionField] > targetPosition
+    // Target is likely BEFORE currentIndex. Search BACKWARD.
+    upperIndex = currentIndex; // Current is a potential upper bound
+    // Start searching from the previous element
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (track[i][positionField] < targetPosition) {
+        lowerIndex = i; // Found the lower bound
+        break;
+      }
+      upperIndex = i; // Update upper bound as we go
+    }
+    // If loop finishes, lowerIndex remains 0 (covered by edge case)
+  }
+
+  // --- Perform Linear Interpolation (Same logic as before) ---
+  const lowerEntry = track[lowerIndex];
+  const upperEntry = track[upperIndex];
+
+  const pos0 = lowerEntry[positionField];
+  const val0 = lowerEntry[valueField];
+  const pos1 = upperEntry[positionField];
+  const val1 = upperEntry[valueField];
+
+  if (pos1 === pos0) {
+    // Handles exact match on duplicate positions or potential data issues
+    return val0; // Or val1, or average ((val0 + val1) / 2)
+  }
+
+  const factor = (targetPosition - pos0) / (pos1 - pos0);
+  const interpolatedValue = val0 + factor * (val1 - val0);
+
+  return interpolatedValue;
+}
+
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   // Haversine formula (calculates distance between two GPS coordinates)
   const R = 6371; // Radius of the earth in km

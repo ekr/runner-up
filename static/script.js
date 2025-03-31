@@ -148,10 +148,21 @@ function drawGraphTime(currentTime) {
   let comparisonTracks = tracks.slice(1);
 
   for (let t = graphStart; t <= graphEnd; t += 1) {
-    const distance = getNormalizedDistanceAtTime(tracks[0], t);
+    const distance = getValueAtPosition(
+      tracks[0],
+      "time",
+      t,
+      "normalizedDistance",
+    );
 
     comparisonTracks.map((track) => {
-      const time = getTimeAtNormalizedDistance(track, distance);
+      const time = getValueAtPosition(
+        track,
+        "normalizedDistance",
+        distance,
+        "time",
+      );
+
       timeDifferences.push({
         time: t,
         diff: time - t,
