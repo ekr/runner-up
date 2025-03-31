@@ -112,7 +112,10 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
     });
   }
 
+  const graphContainer = document.getElementById("graph");
+
   const chart = Plot.plot({
+    width: graphContainer.clientWidth,
     marks: [
       Plot.line(differences, {
         x: "time",
@@ -136,7 +139,6 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
     },
   });
 
-  const graphContainer = document.getElementById("graph");
   while (graphContainer.children.length) {
     graphContainer.removeChild(graphContainer.children[0]);
   }
