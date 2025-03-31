@@ -77,6 +77,7 @@ function getPositionAtTime(track, time) {
 
   return null; // Should not reach here
 }
+
 // Helper function to get distance at a specific time
 function getDistanceAtTime(track, time) {
   for (let i = 1; i < track.length; i++) {
@@ -87,6 +88,22 @@ function getDistanceAtTime(track, time) {
       return (
         track[i - 1].distance +
         (track[i].distance - track[i - 1].distance) * ratio
+      );
+    }
+  }
+  return 0; // Default to 0 if time is before the first point
+}
+
+// Helper function to get normalized distance at a specific time
+function getNormalizedDistanceAtTime(track, time) {
+  for (let i = 1; i < track.length; i++) {
+    if (track[i].time >= time) {
+      // Interpolate distance
+      const ratio =
+        (time - track[i - 1].time) / (track[i].time - track[i - 1].time);
+      return (
+        track[i - 1].normalizedDistance +
+        (track[i].normalizedDistance - track[i - 1].normalizedDistance) * ratio
       );
     }
   }
@@ -107,6 +124,19 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c; // Distance in km
   return d;
+}
+
+function getTimeAtNormalizedDistance(track, distance) {
+  for (let i = 1; i < track.length; i++) {
+    if (track[i].normalizedDistance >= distance) {
+      // Interpolate distance
+      const ratio =
+        (distance - track[i - 1].normalizedDistance) /
+        (track[i].normalizedDistance - track[i - 1].normalizedDistance);
+      return track[i - 1].time + (track[i].time - track[i - 1].time) * ratio;
+    }
+  }
+  return 0; // Default to 0 if distance is before the first point
 }
 
 function findClosestTimeToPosition(
@@ -151,4 +181,22 @@ function findClosestTimeToPosition(
 
 function deg2rad(deg) {
   return deg * (Math.PI / 180);
+}
+
+// Provide a normalized distance under the assumption that the
+// tracks are actually the same length. Rescales everything
+// to be the mean of the track length.
+function normalizeTracks(tracks) {
+  const mean_length = tracks.reduce(
+    (prev, current) =>
+      prev + current[current.length - 1].distance / tracks.length,
+    0,
+  );
+
+  tracks.forEach((track) => {
+    const ratio = track[track.length - 1].distance / mean_length;
+    track.forEach((point) => {
+      point.normalizedDistance = point.distance / ratio;
+    });
+  });
 }

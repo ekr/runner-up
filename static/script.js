@@ -61,6 +61,8 @@ function updateMarkers() {
 }
 
 function updateTracks() {
+  normalizeTracks(tracks);
+
   for (i in tracks) {
     const track = tracks[i];
 
@@ -146,11 +148,10 @@ function drawGraphTime(currentTime) {
   let comparisonTracks = tracks.slice(1);
 
   for (let t = graphStart; t <= graphEnd; t += 1) {
-    const baseline = getPositionAtTime(tracks[0], t);
-    const distance = getDistanceAtTime(tracks[0], t);
+    const distance = getNormalizedDistanceAtTime(tracks[0], t);
 
     comparisonTracks.map((track) => {
-      const time = findClosestTimeToPosition(track, t, distance, baseline);
+      const time = getTimeAtNormalizedDistance(track, distance);
       timeDifferences.push({
         time: t,
         diff: time - t,
@@ -168,7 +169,7 @@ function drawGraphTime(currentTime) {
         stroke: (d) => d.trackDate,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      Plot.text([{ x: currentTime, y: 0, label: diff }], {
+      Plot.text([{ x: currentTime, y: 0 }], {
         x: "x",
         y: "y",
         text: "label",
@@ -179,7 +180,7 @@ function drawGraphTime(currentTime) {
       label: "Time (s)",
     },
     y: {
-      label: "Time Difference (m)",
+      label: "Time Difference (s)",
     },
   });
 
