@@ -58,7 +58,7 @@ function updateMarkers() {
             className: "my-div-icon",
             html: `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`,
           }),
-        }).addTo(markerGroup);
+        }).addTo(map);
       } else {
         markers[i].setLatLng([position.lat, position.lon]);
       }
