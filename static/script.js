@@ -98,7 +98,10 @@ function removeGraphs() {
 }
 
 function drawGraphs(currentTime) {
+  removeGraphs();
   let type = document.querySelector("#compare-by-menu").value;
+
+  drawElevationGraph(currentTime);
 
   if (type === "time") {
     drawDifferenceGraph(
@@ -152,7 +155,6 @@ function drawDifferenceGraph(
     });
   }
 
-  removeGraphs();
   const graphContainer = document.getElementById("graph");
 
   const chart = Plot.plot({
@@ -177,6 +179,63 @@ function drawDifferenceGraph(
     },
     y: {
       label: y_label,
+    },
+  });
+
+  graphContainer.appendChild(chart);
+}
+
+function drawElevationGraph(currentTime) {
+  const graphContainer = document.getElementById("graph");
+  if (tracks.length < 1) {
+    return;
+  }
+
+  let marks = [
+    Plot.line(tracks[0], {
+      x: "normalizedDistance",
+      y: "elevation",
+    }),
+  ];
+
+  let dots = [];
+
+  tracks.forEach((track) => {
+    // First get the distance on this track.
+    const distance = getValueAtPosition(
+      track,
+      "time",
+      currentTime,
+      "normalizedDistance",
+    );
+
+    // Now get the elevation on track[0];
+    const elevation = getValueAtPosition(
+      tracks[0],
+      "distance",
+      distance,
+      "elevation",
+    );
+    dots.push({ x: distance, y: elevation });
+  });
+
+  marks.push(
+    Plot.dot(dots, {
+      x: "x",
+      y: "y",
+      fill: "red",
+    }),
+  );
+
+  const chart = Plot.plot({
+    width: graphContainer.clientWidth,
+    marks: marks,
+    x: {
+      type: "linear",
+      label: "Distance (km)",
+    },
+    y: {
+      label: "Elevation (ft)",
     },
   });
 

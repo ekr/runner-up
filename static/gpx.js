@@ -14,6 +14,7 @@ function parseGPX(gpxData) {
   points.forEach((point, index) => {
     const lat = parseFloat(point.getAttribute("lat"));
     const lon = parseFloat(point.getAttribute("lon"));
+    const ele = parseFloat(point.querySelector("ele").textContent);
     const absoluteTime = new Date(point.querySelector("time").textContent);
     const relativeTime = absoluteTime.getTime() - startTimeMilliseconds; // Time since start
 
@@ -30,6 +31,7 @@ function parseGPX(gpxData) {
     track.push({
       lat,
       lon,
+      elevation: ele,
       time: relativeTime / 1000,
       absoluteTime: absoluteTime / 1000,
       distance: cumulativeDistance,
