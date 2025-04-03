@@ -200,7 +200,7 @@ function drawElevationGraph(currentTime) {
 
   let dots = [];
 
-  tracks.forEach((track) => {
+  tracks.forEach((track, index) => {
     // First get the distance on this track.
     const distance = getValueAtPosition(
       track,
@@ -216,14 +216,14 @@ function drawElevationGraph(currentTime) {
       distance,
       "elevation",
     );
-    dots.push({ x: distance, y: elevation });
+    dots.push({ x: distance, y: elevation, color: getColor(index) });
   });
 
   marks.push(
     Plot.dot(dots, {
       x: "x",
       y: "y",
-      fill: "red",
+      fill: (d) => d.color,
     }),
   );
 
