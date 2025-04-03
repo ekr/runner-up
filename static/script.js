@@ -224,6 +224,7 @@ function drawElevationGraph(currentTime) {
       x: "x",
       y: "y",
       fill: (d) => d.color,
+      r: 6,
     }),
   );
 
