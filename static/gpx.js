@@ -313,7 +313,7 @@ function normalizeTracks(tracks) {
 function findMatchingSegments(track1, track2, threshold = 0.03) {
   let segments = [];
   let currentSegment = [];
-
+  const window = 30;
   let t1Index = 0;
   let t2Index = 0;
 
@@ -332,24 +332,22 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
     // console.log(`Matching = ${matching} T1=${t1Index} T2=${t2Index}`);
     if (matching) {
       // We are in a matching segment.
-      // Find the local point on track2 that is >= the current position
-      // and closest to the current point on track1.
+      // Find the closest point on track2 that is >= the current position
+      // within window `window`
       distance = getDistanceFromPointInKm(track1[t1Index], track2[t2Index]);
-      console.log(
+      /*console.log(
         `T1=${t1Index} T2=${t2Index} distance=${distance} cum1=${track2[t1Index].distance} cum2=${track2[t2Index].distance}`,
-      );
-      for (let i = t2Index; i < track2.length; i++) {
+      );*/
+      for (
+        let i = t2Index;
+        i < Math.min(track2.length, t2Index + window);
+        i++
+      ) {
         const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
-        if (t1Index == 160) {
-          console.log(
-            `T1=${t1Index} T2=${i} distance=${d} cum1=${track2[t1Index].distance} cum2=${track2[i].distance}`,
-          );
+        if (d < distance) {
+          t2Index = i;
+          distance = d;
         }
-        if (d > distance) {
-          break;
-        }
-        t2Index = i;
-        distance = d;
       }
 
       // OK, we now have the closest point on t2. Check to see if it's
