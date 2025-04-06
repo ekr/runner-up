@@ -324,10 +324,9 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
   }
   let currentSegment = [0, 0];
   let matching = true;
-  while (t1Index < track1.length - 1) {
-    t1Index++;
 
-    // console.log(`Matching = ${matching} T1=${t1Index} T2=${t2Index}`);
+  for (; t1Index < track1.length; t1Index++) {
+    //console.log(`Matching = ${matching} T1=${t1Index} T2=${t2Index}`);
     if (matching) {
       // We are in a matching segment.
       // Find the closest point on track2 that is >= the current position
@@ -384,7 +383,7 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
   // track2, so iterate through the rest. If this is still a segment, they
   // should all be within threshold.
   if (matching) {
-    while (t2Index < t2Index.length) {
+    while (t2Index < track2.length - 1) {
       const d = getDistanceFromPointInKm(
         track1[track1.length - 1],
         track2[t2Index],
@@ -406,5 +405,65 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
   }
 
   console.log(segments);
-  return;
+  return segments;
+}
+
+function consolidateSegments(tracks, segments) {
+  let newtracks = [];
+
+  tracks.forEach((track, i) => {
+    let newtrack = [];
+
+    segments.forEach((segment_group) => {
+      const segment_indexes = segment_group[i];
+      const segment = track.slice(segment_indexes[0], segment_indexes[1] + 1);
+      let time_offset;
+
+      // We need to adjust time to make segments
+      // contiguous.
+      if (newtrack.length === 0) {
+        // If this is the first segment, then
+        // we align the first point at t=0, distance=0
+        time_offset = segment[0].time;
+      } else {
+        // If this is not the first segment, then we have to cheat a
+        // little bit. We take the gap between the first two points in
+        // this segment and adjust so that the gap between the last
+        // segment and this segment matches that.
+        if (segment.length < 2) {
+          throw new Error("Short segment");
+        }
+        time_offset =
+          segment[0].time -
+          newtrack[newtrack.length - 1].time -
+          (segment[1].time - segment[0].time);
+      }
+
+      newtrack.push(
+        ...segment.map((s) => {
+          s.time -= time_offset;
+          return s;
+        }),
+      );
+
+      // Now recompute all the distances.
+      let cumulativeDistance = 0;
+      for (index in newtrack) {
+        if (index > 0) {
+          cumulativeDistance +=
+            getDistanceFromLatLonInKm(
+              newtrack[index - 1].lat,
+              newtrack[index - 1].lon,
+              newtrack[index].lat,
+              newtrack[index].lon,
+            ) * 1000; // Convert to meters
+        }
+        newtrack.distance = cumulativeDistance;
+      }
+    });
+
+    newtracks.push(newtrack);
+  });
+
+  return newtracks;
 }

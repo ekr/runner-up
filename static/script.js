@@ -17,7 +17,7 @@ function createLegend() {
     clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
     let trackId = i;
 
-    clone.querySelector(".delete-button").addEventListener("click", (e) => {
+    clone.querySelector(".delete-button").addEventListener("click", (_e) => {
       tracks.splice(trackId, 1);
       updateTracks();
     });
@@ -73,6 +73,10 @@ function updateMarkers() {
 }
 
 function updateTracks() {
+  // TODO: Remove these.
+  //const segments = findMatchingSegments(tracks[0], tracks[1], 0.03);
+  //  tracks = consolidateSegments(tracks, segments);
+
   // Clean up.
   markerGroup.clearLayers();
   removeGraphs();
@@ -217,7 +221,7 @@ function drawElevationGraph(currentTime) {
     // Now get the elevation on track[0];
     const elevation = getValueAtPosition(
       tracks[0],
-      "distance",
+      "normalizedDistance",
       distance,
       "elevation",
     );
@@ -318,6 +322,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Test mode");
     fetchGPXTrack("track1.gpx");
     fetchGPXTrack("track2.gpx");
+  } else if (url.hash == "#test2") {
+    console.log("Test2 mode");
+    fetchGPXTrack("priest-kennedy.gpx");
+    fetchGPXTrack("priest-sombroso.gpx");
   }
 
   addFileListener("track");
