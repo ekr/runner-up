@@ -5,27 +5,29 @@ function removeGraphs() {
   }
 }
 
-function drawGraphs(currentTime) {
+function drawGraphs(currentTime, all_match) {
   removeGraphs();
   let type = document.querySelector("#compare-by-menu").value;
 
-  drawElevationGraph(currentTime);
+  drawElevationGraph(currentTime, all_match);
 
-  if (type === "time") {
-    drawDifferenceGraph(
-      currentTime,
-      "displayDistance",
-      "time",
-      "Time Behind (s)",
-    );
-  } else if (type === "distance") {
-    drawDifferenceGraph(
-      currentTime,
-      "time",
-      "displayDistance",
-      `Distance Behind (${Units().distanceDiffUnits()})`,
-      (v) => Units().distanceDiffValue(-1 * v),
-    );
+  if (all_match) {
+    if (type === "time") {
+      drawDifferenceGraph(
+        currentTime,
+        "displayDistance",
+        "time",
+        "Time Behind (s)",
+      );
+    } else if (type === "distance") {
+      drawDifferenceGraph(
+        currentTime,
+        "time",
+        "displayDistance",
+        `Distance Behind (${Units().distanceDiffUnits()})`,
+        (v) => Units().distanceDiffValue(-1 * v),
+      );
+    }
   }
 }
 

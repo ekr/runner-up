@@ -58,7 +58,7 @@ function LeafletMap() {
 
       clone.querySelector(".delete-button").addEventListener("click", (_e) => {
         data.splice(trackId, 1);
-        updateTracks();
+        dataUpdated();
       });
 
       legendContainer.appendChild(clone);
