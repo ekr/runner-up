@@ -4,7 +4,7 @@ let maxTime = -Infinity;
 // The raw GPX data we loaded in.
 let data = [];
 
-// The tracks to actually plot transformed into read-to-plot
+// The tracks to actually plot transformed into ready-to-plot
 // version.
 let tracks = [];
 
