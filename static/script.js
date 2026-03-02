@@ -192,7 +192,7 @@ function fetchGPXTrack(url) {
     .catch((error) => console.error("Error loading GPX:", error));
 }
 
-// Populate the saved tracks dropdown from server and localStorage.
+// Populate the saved tracks dropdown from localStorage.
 function populateSavedTracks() {
   const select = document.getElementById("saved-tracks");
 
@@ -213,19 +213,6 @@ function populateSavedTracks() {
   } catch (e) {
     console.error("Failed to read localStorage tracks:", e);
   }
-
-  // Add server tracks from /api/tracks.
-  fetch("/api/tracks")
-    .then((response) => response.json())
-    .then((files) => {
-      for (const filename of files) {
-        const option = document.createElement("option");
-        option.value = "server:" + filename;
-        option.textContent = filename;
-        select.appendChild(option);
-      }
-    })
-    .catch((error) => console.error("Error fetching track list:", error));
 }
 
 // Handle saved-tracks dropdown selection.
@@ -238,22 +225,17 @@ function addSavedTrackListener() {
     // Reset dropdown back to placeholder.
     select.selectedIndex = 0;
 
-    if (value.startsWith("local:")) {
-      const name = value.substring(6);
-      try {
-        const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-        const entry = stored.find((s) => s.name === name);
-        if (entry) {
-          const track = parseGPX(entry.data);
-          data.push(track);
-          dataUpdated();
-        }
-      } catch (err) {
-        console.error("Failed to load track from localStorage:", err);
+    const name = value.startsWith("local:") ? value.substring(6) : value;
+    try {
+      const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+      const entry = stored.find((s) => s.name === name);
+      if (entry) {
+        const track = parseGPX(entry.data);
+        data.push(track);
+        dataUpdated();
       }
-    } else if (value.startsWith("server:")) {
-      const filename = value.substring(7);
-      fetchGPXTrack("/tracks/" + filename);
+    } catch (err) {
+      console.error("Failed to load track from localStorage:", err);
     }
   });
 }
