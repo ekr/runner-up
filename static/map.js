@@ -63,9 +63,9 @@ function LeafletMap() {
         data.splice(trackId, 1);
 
         // Remove from localStorage
-        const stored = JSON.parse(localStorage.getItem("gpxTracks") || "[]");
+        const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
         stored.splice(trackId, 1);
-        localStorage.setItem("gpxTracks", JSON.stringify(stored));
+        localStorage.setItem("gpxUploads", JSON.stringify(stored));
 
         dataUpdated();
       });
