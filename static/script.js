@@ -192,6 +192,72 @@ function fetchGPXTrack(url) {
     .catch((error) => console.error("Error loading GPX:", error));
 }
 
+// Populate the saved tracks dropdown from server and localStorage.
+function populateSavedTracks() {
+  const select = document.getElementById("saved-tracks");
+
+  // Clear existing options except the default placeholder.
+  while (select.options.length > 1) {
+    select.remove(1);
+  }
+
+  // Add localStorage tracks.
+  try {
+    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+    for (const entry of stored) {
+      const option = document.createElement("option");
+      option.value = "local:" + entry.name;
+      option.textContent = entry.name;
+      select.appendChild(option);
+    }
+  } catch (e) {
+    console.error("Failed to read localStorage tracks:", e);
+  }
+
+  // Add server tracks from /api/tracks.
+  fetch("/api/tracks")
+    .then((response) => response.json())
+    .then((files) => {
+      for (const filename of files) {
+        const option = document.createElement("option");
+        option.value = "server:" + filename;
+        option.textContent = filename;
+        select.appendChild(option);
+      }
+    })
+    .catch((error) => console.error("Error fetching track list:", error));
+}
+
+// Handle saved-tracks dropdown selection.
+function addSavedTrackListener() {
+  const select = document.getElementById("saved-tracks");
+  select.addEventListener("change", (e) => {
+    const value = e.target.value;
+    if (!value) return;
+
+    // Reset dropdown back to placeholder.
+    select.selectedIndex = 0;
+
+    if (value.startsWith("local:")) {
+      const name = value.substring(6);
+      try {
+        const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+        const entry = stored.find((s) => s.name === name);
+        if (entry) {
+          const track = parseGPX(entry.data);
+          data.push(track);
+          dataUpdated();
+        }
+      } catch (err) {
+        console.error("Failed to load track from localStorage:", err);
+      }
+    } else if (value.startsWith("server:")) {
+      const filename = value.substring(7);
+      fetchGPXTrack("/tracks/" + filename);
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   lmap = LeafletMap();
 
@@ -215,6 +281,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadGPXFromLocalStorage();
   addFileListener("track");
+  addSavedTrackListener();
+  populateSavedTracks();
   addGraphTypeListener();
   document
     .querySelector("#trim-tracks-checkbox")
