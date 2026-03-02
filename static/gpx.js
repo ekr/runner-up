@@ -286,6 +286,10 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
   // falls behind when the ratio != 1; the ratio-based expected position
   // stays accurate regardless of sampling differences.
   const ratio = track2.length / track1.length;
+  // Ratio of total cumulative distances, used to normalize distance comparisons
+  // between tracks that accumulate GPS noise differently.
+  const distRatio =
+    track2[track2.length - 1].distance / track1[track1.length - 1].distance;
   let t1Index = 0;
   let t2Index = 0;
 
@@ -302,17 +306,41 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
     //console.log(`Matching = ${matching} T1=${t1Index} T2=${t2Index}`);
     if (matching) {
       // We are in a matching segment.
-      // Find the closest point on track2 that is >= the current position.
-      // The search window extends to cover both a fixed lookahead from
-      // t2Index and the expected position based on the track length ratio,
-      // so cumulative drift from different sampling rates can't cause a
-      // false divergence.
+      // Find the closest point on track2 near the current position.
+      //
+      // Two constraints work together:
+      // 1. Per-step cap: limits t2 advance to a few points, preventing
+      //    hairpin cross-leg jumps (return leg is close geographically
+      //    but many indices ahead).
+      // 2. Distance-based catch-up: when t2 falls behind (detected by
+      //    comparing normalized cumulative distances), extends the
+      //    search window so t2 can catch up. This handles stops where
+      //    one track piles up points at the same location.
       distance = getDistanceFromPointInKm(track1[t1Index], track2[t2Index]);
-      const expectedT2 = Math.round(t1Index * ratio);
-      const searchEnd = Math.min(
-        track2.length,
-        Math.max(t2Index + 30, expectedT2 + 15),
-      );
+      const maxStep = Math.ceil(ratio * 3) + 5;
+      let searchEnd = Math.min(track2.length, t2Index + maxStep);
+      // Check if t2 has fallen behind using normalized cumulative distance.
+      const expectedT2Dist = track1[t1Index].distance * distRatio;
+      if (track2[t2Index].distance < expectedT2Dist - 100) {
+        // t2 is behind — extend search to catch up, capped at expected + margin
+        for (let j = searchEnd; j < track2.length; j++) {
+          if (track2[j].distance > expectedT2Dist + 100) break;
+          searchEnd = j + 1;
+        }
+      }
+      // Detect if t2 is in a stopped zone (consecutive points barely
+      // moving, < 1m apart). If so, skip past the cluster so t2 can
+      // find where it resumes. At a hairpin the points are spaced
+      // normally so this won't trigger.
+      if (t2Index + 1 < track2.length &&
+          track2[t2Index + 1].distance - track2[t2Index].distance < 1) {
+        let resumeIdx = t2Index;
+        while (resumeIdx < track2.length - 1 &&
+               track2[resumeIdx + 1].distance - track2[resumeIdx].distance < 1) {
+          resumeIdx++;
+        }
+        searchEnd = Math.min(track2.length, resumeIdx + maxStep);
+      }
       for (let i = t2Index; i < searchEnd; i++) {
         const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
         if (d < distance) {

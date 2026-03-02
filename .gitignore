@@ -1,0 +1,6 @@
+.runtime/
+.claude/commands/
+.logs/
+.beads/
+test_files/
+node_modules/

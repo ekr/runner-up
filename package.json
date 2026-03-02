@@ -11,5 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
   }
 }
