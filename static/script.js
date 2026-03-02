@@ -106,8 +106,10 @@ function addFileListener(name) {
       const reader = new FileReader();
       console.log(file);
       reader.onload = (e) => {
-        const track = parseGPX(e.target.result);
+        const gpxText = e.target.result;
+        const track = parseGPX(gpxText);
         data.push(track);
+        saveGPXToLocalStorage(file.name, gpxText);
         dataUpdated();
       };
       reader.readAsText(file);
@@ -145,6 +147,39 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
+// Save a GPX file to localStorage.
+function saveGPXToLocalStorage(name, gpxText) {
+  try {
+    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+    // Replace if same filename already stored.
+    const idx = stored.findIndex((e) => e.name === name);
+    if (idx >= 0) {
+      stored[idx].data = gpxText;
+    } else {
+      stored.push({ name, data: gpxText });
+    }
+    localStorage.setItem("gpxUploads", JSON.stringify(stored));
+  } catch (e) {
+    console.error("Failed to save GPX to localStorage:", e);
+  }
+}
+
+// Load any previously uploaded GPX files from localStorage.
+function loadGPXFromLocalStorage() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+    for (const entry of stored) {
+      const track = parseGPX(entry.data);
+      data.push(track);
+    }
+    if (stored.length > 0) {
+      dataUpdated();
+    }
+  } catch (e) {
+    console.error("Failed to load GPX from localStorage:", e);
+  }
+}
+
 // Function to fetch and display a GPX track
 function fetchGPXTrack(url) {
   fetch(url)
@@ -178,6 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchGPXTrack("priest-sombroso.gpx");
   }
 
+  loadGPXFromLocalStorage();
   addFileListener("track");
   addGraphTypeListener();
   document
