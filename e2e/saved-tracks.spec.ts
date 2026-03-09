@@ -23,7 +23,6 @@ test.describe('Saved Tracks Dropdown', () => {
     // Check localStorage has the track with an ID
     const stored = await getStoredTracks(page);
     expect(stored).toHaveLength(1);
-    expect(stored[0].name).toBe('track1.gpx');
     expect(stored[0].id).toBeDefined();
     expect(stored[0].data).toContain('<gpx');
   });
@@ -31,8 +30,8 @@ test.describe('Saved Tracks Dropdown', () => {
   test('should populate dropdown with saved tracks', async ({ page }) => {
     // Seed localStorage with tracks
     await seedLocalStorageNow(page, [
-      { name: 'track1.gpx', data: track1Data },
-      { name: 'track2.gpx', data: track2Data },
+      { data: track1Data },
+      { data: track2Data },
     ]);
     await page.reload();
 
@@ -41,21 +40,22 @@ test.describe('Saved Tracks Dropdown', () => {
 
     // Should have placeholder + 2 tracks = 3 options
     await expect(options).toHaveCount(3);
-    await expect(options.nth(1)).toHaveText('track1.gpx');
-    await expect(options.nth(2)).toHaveText('track2.gpx');
+    // Dropdown text is now the start date of the GPX track
+    await expect(options.nth(1)).toHaveText('Mon Jan 15 2024');
+    await expect(options.nth(2)).toHaveText('Tue Jan 16 2024');
   });
 
   test('should load correct track when selected from dropdown', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ name: 'track1.gpx', data: track1Data }]);
+    await seedLocalStorageNow(page, [{ data: track1Data }]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
 
-    // Verify dropdown has correct label
-    await expect(dropdown.locator('option').nth(1)).toHaveText('track1.gpx');
+    // Verify dropdown has correct label (now shows track date)
+    await expect(dropdown.locator('option').nth(1)).toHaveText('Mon Jan 15 2024');
 
     // Select by label text since value is now the content hash
-    await dropdown.selectOption({ label: 'track1.gpx' });
+    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
 
     // Track should be displayed on map
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
@@ -65,8 +65,8 @@ test.describe('Saved Tracks Dropdown', () => {
 
   test('should remove loaded track from dropdown', async ({ page }) => {
     await seedLocalStorageNow(page, [
-      { name: 'track1.gpx', data: track1Data },
-      { name: 'track2.gpx', data: track2Data },
+      { data: track1Data },
+      { data: track2Data },
     ]);
     await page.reload();
 
@@ -75,21 +75,21 @@ test.describe('Saved Tracks Dropdown', () => {
     // Initially should have placeholder + 2 tracks
     await expect(dropdown.locator('option')).toHaveCount(3);
 
-    // Load track1
-    await dropdown.selectOption({ label: 'track1.gpx' });
+    // Load track1 (now selected by date)
+    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Dropdown should now only have placeholder + track2 (track1 is being displayed)
     await expect(dropdown.locator('option')).toHaveCount(2);
-    await expect(dropdown.locator('option').nth(1)).toHaveText('track2.gpx');
+    await expect(dropdown.locator('option').nth(1)).toHaveText('Tue Jan 16 2024');
   });
 
   test('should remove track from display on delete click', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ name: 'track1.gpx', data: track1Data }]);
+    await seedLocalStorageNow(page, [{ data: track1Data }]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
-    await dropdown.selectOption({ label: 'track1.gpx' });
+    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Track should not be in dropdown while displayed
@@ -111,11 +111,11 @@ test.describe('Saved Tracks Dropdown', () => {
   });
 
   test('should delete track permanently on Shift+click', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ name: 'track1.gpx', data: track1Data }]);
+    await seedLocalStorageNow(page, [{ data: track1Data }]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
-    await dropdown.selectOption({ label: 'track1.gpx' });
+    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Set up dialog handler for confirm dialog
@@ -155,8 +155,8 @@ test.describe('Saved Tracks Dropdown', () => {
     const dropdown = page.locator(selectors.savedTracksDropdown);
     await expect(dropdown.locator('option')).toHaveCount(2);
 
-    // Can load track from dropdown
-    await dropdown.selectOption({ label: 'track1.gpx' });
+    // Can load track from dropdown (now shows date instead of filename)
+    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
   });
 

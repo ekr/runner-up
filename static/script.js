@@ -112,7 +112,7 @@ function addFileListener(name) {
         const gpxText = e.target.result;
         const track = parseGPX(gpxText);
         data.push(track);
-        const storageId = await saveGPXToLocalStorage(file.name, gpxText);
+        const storageId = await saveGPXToLocalStorage(gpxText);
         dataToStorageId.push(storageId);
         dataUpdated();
         populateSavedTracks();
@@ -152,23 +152,17 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Generate SHA-256 hash of content using WebCrypto.
-// Returns hex string of the hash.
-async function hashContent(str) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 // Save a GPX file to localStorage. Returns the storage ID (content hash).
-async function saveGPXToLocalStorage(name, gpxText) {
+async function saveGPXToLocalStorage(gpxText) {
   try {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
 
     // Use SHA-256 content hash as ID - automatically handles duplicates.
-    const id = await hashContent(gpxText);
+    const encoder = new TextEncoder();
+    const dataBytes = encoder.encode(gpxText);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     // Check if this content already exists.
     const existingIdx = stored.findIndex((e) => e.id === id);
@@ -178,7 +172,7 @@ async function saveGPXToLocalStorage(name, gpxText) {
     }
 
     // Create new entry with content hash as ID.
-    stored.push({ id, name, data: gpxText });
+    stored.push({ id, data: gpxText });
     localStorage.setItem("gpxUploads", JSON.stringify(stored));
     return id;
   } catch (e) {
@@ -246,7 +240,13 @@ function populateSavedTracks() {
       }
       const option = document.createElement("option");
       option.value = entry.id;
-      option.textContent = entry.name;
+      // Parse GPX to get the start date for display.
+      try {
+        const track = parseGPX(entry.data);
+        option.textContent = getStartDate(track);
+      } catch (parseErr) {
+        option.textContent = "Unknown date";
+      }
       select.appendChild(option);
     }
   } catch (e) {

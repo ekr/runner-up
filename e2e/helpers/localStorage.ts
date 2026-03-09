@@ -2,16 +2,7 @@ import { Page } from '@playwright/test';
 import * as crypto from 'crypto';
 
 export interface StoredTrack {
-  name: string;
   data: string;
-}
-
-/**
- * Compute SHA-256 hash of content.
- * Uses Node's crypto module to match the WebCrypto SHA-256 used in the app.
- */
-function hashContent(str: string): string {
-  return crypto.createHash('sha256').update(str).digest('hex');
 }
 
 /**
@@ -36,10 +27,9 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
  * IDs are computed from content hash (SHA-256) to match app behavior.
  */
 export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Promise<void> {
-  // Compute SHA-256 hash as ID for each track
+  // Compute SHA-256 hash as ID for each track (inline the hash function)
   const tracksWithIds = tracks.map((track) => ({
-    id: hashContent(track.data),
-    name: track.name,
+    id: crypto.createHash('sha256').update(track.data).digest('hex'),
     data: track.data,
   }));
   await page.evaluate((tracksJson) => {
