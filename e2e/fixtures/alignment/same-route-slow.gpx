@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunnerUp Test - Alignment Tests">
+  <trk>
+    <name>Same Route - Slow Pace</name>
+    <trkseg>
+      <!-- A simple 1km route at slow pace (6 min/km) -->
+      <trkpt lat="37.7749" lon="-122.4194">
+        <ele>10</ele>
+        <time>2024-01-15T08:00:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7759" lon="-122.4184">
+        <ele>12</ele>
+        <time>2024-01-15T08:00:36Z</time>
+      </trkpt>
+      <trkpt lat="37.7769" lon="-122.4174">
+        <ele>15</ele>
+        <time>2024-01-15T08:01:12Z</time>
+      </trkpt>
+      <trkpt lat="37.7779" lon="-122.4164">
+        <ele>18</ele>
+        <time>2024-01-15T08:01:48Z</time>
+      </trkpt>
+      <trkpt lat="37.7789" lon="-122.4154">
+        <ele>20</ele>
+        <time>2024-01-15T08:02:24Z</time>
+      </trkpt>
+      <trkpt lat="37.7799" lon="-122.4144">
+        <ele>22</ele>
+        <time>2024-01-15T08:03:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7809" lon="-122.4134">
+        <ele>25</ele>
+        <time>2024-01-15T08:03:36Z</time>
+      </trkpt>
+      <trkpt lat="37.7819" lon="-122.4124">
+        <ele>27</ele>
+        <time>2024-01-15T08:04:12Z</time>
+      </trkpt>
+      <trkpt lat="37.7829" lon="-122.4114">
+        <ele>28</ele>
+        <time>2024-01-15T08:04:48Z</time>
+      </trkpt>
+      <trkpt lat="37.7839" lon="-122.4104">
+        <ele>30</ele>
+        <time>2024-01-15T08:05:24Z</time>
+      </trkpt>
+      <trkpt lat="37.7849" lon="-122.4094">
+        <ele>28</ele>
+        <time>2024-01-15T08:06:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

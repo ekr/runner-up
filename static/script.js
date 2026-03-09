@@ -11,13 +11,16 @@ let dataToStorageId = [];
 // version.
 let tracks = [];
 
-// The individual matching segments for each track.
-let segments = null;
+// The alignment result from findOverlappingRegions.
+let alignment = null;
 
 // Whether we have a single course where all the tracks line
 // up, either because it was created that way or because
 // we merged the matching segments.
 let all_match = null;
+
+// Display mode: 'full' shows entire tracks, 'overlapping' shows only overlapping regions.
+let displayMode = 'full';
 
 // The map object.
 let lmap = undefined;
@@ -28,27 +31,23 @@ function dataUpdated() {
   if (!data.length) {
     lmap.clear();
     removeGraphs();
+    updateDisplayModeUI();
     return;
   }
-  // TODO(ekr@rtfm.com): Handle >2 tracks.
+
+  // Compute alignment for multiple tracks
   if (data.length > 1) {
-    segments = findMatchingSegments(data[0], data[1], 0.03, 20);
+    alignment = findOverlappingRegions(data[0], data[1], {
+      threshold: 0.03,  // 30 meters
+      searchWindow: 30,
+      minSegmentPoints: 3
+    });
   } else {
-    segments = [[0, data[0].length - 1]];
+    // Single track - no alignment needed
+    alignment = null;
   }
 
-  const trim_tracks = document.querySelector("#trim-tracks");
-  if (!segments) {
-    console.log("No matching segments");
-    trim_tracks.style.display = "none";
-  } else if (segments.length > 1) {
-    console.log("More than one segment");
-    trim_tracks.style.display = "flex";
-  } else {
-    console.log("All segments match");
-    trim_tracks.style.display = "none";
-  }
-
+  updateDisplayModeUI();
   displayTracks();
 
   // Show/hide the file picker depending on how many tracks have
@@ -57,24 +56,56 @@ function dataUpdated() {
     data.length >= 2 ? "none" : "flex";
 }
 
+// Update the display mode UI based on alignment state.
+function updateDisplayModeUI() {
+  const displayModeContainer = document.querySelector("#display-mode");
+
+  if (!alignment) {
+    // No alignment or single track - hide display mode selector
+    displayModeContainer.style.display = "none";
+    return;
+  }
+
+  if (alignment.hasMultipleSegments) {
+    // Multiple segments - show the selector
+    displayModeContainer.style.display = "flex";
+    const summary = getAlignmentSummary(alignment);
+    document.querySelector("#alignment-summary").textContent = summary;
+  } else {
+    // Single overlapping region - hide selector, tracks fully align
+    displayModeContainer.style.display = "none";
+  }
+}
+
 function displayTracks() {
   tracks = structuredClone(data);
 
-  if (!segments) {
+  if (data.length === 1) {
+    // Single track - no alignment needed
+    all_match = true;
+    tracks[0].forEach((point) => {
+      point.displayDistance = point.distance;
+      point.normalizedDistance = point.distance;
+    });
+  } else if (!alignment) {
+    // Multiple tracks but no alignment found
     all_match = false;
-  } else if (segments.length > 1) {
-    const trim_tracks = document.querySelector("#trim-tracks-checkbox");
-    if (trim_tracks.checked) {
-      tracks = consolidateSegments(tracks, segments);
-      normalizeTracks(tracks);
-      all_match = true;
-    } else {
-      all_match = false;
-    }
+  } else if (alignment.hasMultipleSegments) {
+    // Multiple overlapping segments - use display mode
+    const overlappingOnly = displayMode === 'overlapping';
+    const harmonized = createHarmonizedTracks(
+      data[0], data[1], alignment, overlappingOnly
+    );
+    tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
+    all_match = true;
   } else {
-    normalizeTracks(tracks);
+    // Single overlapping region - harmonize distances
+    const harmonized = createHarmonizedTracks(data[0], data[1], alignment, false);
+    tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
     all_match = true;
   }
+
+  // Set displayDistance for all points
   tracks.forEach((track) => {
     track.forEach((point) => {
       point.displayDistance = point.normalizedDistance ?? point.distance;
@@ -85,11 +116,17 @@ function displayTracks() {
   lmap.clear();
   removeGraphs();
 
-  for (i in tracks) {
+  // Reset time bounds
+  minTime = Infinity;
+  maxTime = -Infinity;
+
+  for (let i in tracks) {
     const track = tracks[i];
 
-    minTime = Math.min(track[0].time, minTime);
-    maxTime = Math.max(track[track.length - 1].time, maxTime);
+    if (track.length > 0) {
+      minTime = Math.min(track[0].time, minTime);
+      maxTime = Math.max(track[track.length - 1].time, maxTime);
+    }
 
     lmap.drawTrack(track);
   }
@@ -328,7 +365,16 @@ document.addEventListener("DOMContentLoaded", () => {
   addSavedTrackListener();
   populateSavedTracks();
   addGraphTypeListener();
-  document
-    .querySelector("#trim-tracks-checkbox")
-    .addEventListener("change", displayTracks);
+  addDisplayModeListener();
 });
+
+// Add listener for display mode toggle.
+function addDisplayModeListener() {
+  const modeSelect = document.querySelector("#display-mode-select");
+  if (modeSelect) {
+    modeSelect.addEventListener("change", (e) => {
+      displayMode = e.target.value;
+      displayTracks();
+    });
+  }
+}

@@ -20,3 +20,7 @@ playwright/.cache/
 .claude/commands/
 .logs/
 .beads/
+
+# Gas Town (added by gt)
+.claude/
+__pycache__/

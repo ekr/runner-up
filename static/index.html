@@ -20,8 +20,13 @@
         <option value="" disabled selected>Select a saved track...</option>
       </select>
     </div>
-    <div id="trim-tracks">
-      <label for="trim-checkbox">Remove non-matching segments </label><input type="checkbox" id="trim-tracks-checkbox">
+    <div id="display-mode" style="display: none;">
+      <span id="alignment-summary"></span>
+      <label for="display-mode-select">Show: </label>
+      <select id="display-mode-select">
+        <option value="full">Full tracks</option>
+        <option value="overlapping">Overlapping regions only</option>
+      </select>
     </div>
   </div>
   
@@ -69,8 +74,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="settings.js"></script>
     <script src="units.js"></script>
-    <script src="utils.js"></script>    
+    <script src="utils.js"></script>
     <script src="gpx.js"></script>
+    <script src="alignment.js"></script>
     <script src="map.js"></script>
     <script src="graphs.js"></script>
     <script src="script.js"></script>
