@@ -7,6 +7,14 @@
     display: flex;
 }
 
+#trim-tracks {
+    display: none;
+    align-items: center;
+    gap: 0.5em;
+    border: 1px dashed lightgray;
+    padding: 0.5em;
+}
+
 #display-mode {
     display: none;
     align-items: center;

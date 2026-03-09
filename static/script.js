@@ -11,7 +11,10 @@ let dataToStorageId = [];
 // version.
 let tracks = [];
 
-// The alignment result from findOverlappingRegions.
+// The individual matching segments for each track.
+let segments = null;
+
+// The alignment result from findOverlappingRegions (new).
 let alignment = null;
 
 // Whether we have a single course where all the tracks line
@@ -31,23 +34,48 @@ function dataUpdated() {
   if (!data.length) {
     lmap.clear();
     removeGraphs();
-    updateDisplayModeUI();
     return;
   }
-
-  // Compute alignment for multiple tracks
+  // TODO(ekr@rtfm.com): Handle >2 tracks.
   if (data.length > 1) {
+    segments = findMatchingSegments(data[0], data[1], 0.03, 20);
+    // Also compute new alignment
     alignment = findOverlappingRegions(data[0], data[1], {
-      threshold: 0.03,  // 30 meters
+      threshold: 0.03,
       searchWindow: 30,
       minSegmentPoints: 3
     });
   } else {
-    // Single track - no alignment needed
+    segments = [[0, data[0].length - 1]];
     alignment = null;
   }
 
-  updateDisplayModeUI();
+  const trim_tracks = document.querySelector("#trim-tracks");
+  const display_mode = document.querySelector("#display-mode");
+
+  if (!segments) {
+    console.log("No matching segments");
+    if (trim_tracks) trim_tracks.style.display = "none";
+    if (display_mode) display_mode.style.display = "none";
+  } else if (segments.length > 1) {
+    console.log("More than one segment");
+    if (trim_tracks) trim_tracks.style.display = "flex";
+    // Show new display mode selector if alignment found multiple segments
+    if (display_mode && alignment && alignment.hasMultipleSegments) {
+      display_mode.style.display = "flex";
+      const summary = document.querySelector("#alignment-summary");
+      if (summary) {
+        summary.textContent = getAlignmentSummary(alignment);
+      }
+    } else if (display_mode) {
+      display_mode.style.display = "none";
+    }
+  } else {
+    console.log("All segments match");
+    if (trim_tracks) trim_tracks.style.display = "none";
+    if (display_mode) display_mode.style.display = "none";
+  }
+
   displayTracks();
 
   // Show/hide the file picker depending on how many tracks have
@@ -56,56 +84,24 @@ function dataUpdated() {
     data.length >= 2 ? "none" : "flex";
 }
 
-// Update the display mode UI based on alignment state.
-function updateDisplayModeUI() {
-  const displayModeContainer = document.querySelector("#display-mode");
-
-  if (!alignment) {
-    // No alignment or single track - hide display mode selector
-    displayModeContainer.style.display = "none";
-    return;
-  }
-
-  if (alignment.hasMultipleSegments) {
-    // Multiple segments - show the selector
-    displayModeContainer.style.display = "flex";
-    const summary = getAlignmentSummary(alignment);
-    document.querySelector("#alignment-summary").textContent = summary;
-  } else {
-    // Single overlapping region - hide selector, tracks fully align
-    displayModeContainer.style.display = "none";
-  }
-}
-
 function displayTracks() {
   tracks = structuredClone(data);
 
-  if (data.length === 1) {
-    // Single track - no alignment needed
-    all_match = true;
-    tracks[0].forEach((point) => {
-      point.displayDistance = point.distance;
-      point.normalizedDistance = point.distance;
-    });
-  } else if (!alignment) {
-    // Multiple tracks but no alignment found
+  if (!segments) {
     all_match = false;
-  } else if (alignment.hasMultipleSegments) {
-    // Multiple overlapping segments - use display mode
-    const overlappingOnly = displayMode === 'overlapping';
-    const harmonized = createHarmonizedTracks(
-      data[0], data[1], alignment, overlappingOnly
-    );
-    tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
-    all_match = true;
+  } else if (segments.length > 1) {
+    const trim_tracks = document.querySelector("#trim-tracks-checkbox");
+    if (trim_tracks && trim_tracks.checked) {
+      tracks = consolidateSegments(tracks, segments);
+      normalizeTracks(tracks);
+      all_match = true;
+    } else {
+      all_match = false;
+    }
   } else {
-    // Single overlapping region - harmonize distances
-    const harmonized = createHarmonizedTracks(data[0], data[1], alignment, false);
-    tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
+    normalizeTracks(tracks);
     all_match = true;
   }
-
-  // Set displayDistance for all points
   tracks.forEach((track) => {
     track.forEach((point) => {
       point.displayDistance = point.normalizedDistance ?? point.distance;
@@ -116,17 +112,11 @@ function displayTracks() {
   lmap.clear();
   removeGraphs();
 
-  // Reset time bounds
-  minTime = Infinity;
-  maxTime = -Infinity;
-
-  for (let i in tracks) {
+  for (i in tracks) {
     const track = tracks[i];
 
-    if (track.length > 0) {
-      minTime = Math.min(track[0].time, minTime);
-      maxTime = Math.max(track[track.length - 1].time, maxTime);
-    }
+    minTime = Math.min(track[0].time, minTime);
+    maxTime = Math.max(track[track.length - 1].time, maxTime);
 
     lmap.drawTrack(track);
   }
@@ -366,6 +356,11 @@ document.addEventListener("DOMContentLoaded", () => {
   populateSavedTracks();
   addGraphTypeListener();
   addDisplayModeListener();
+
+  const trimTracksCheckbox = document.querySelector("#trim-tracks-checkbox");
+  if (trimTracksCheckbox) {
+    trimTracksCheckbox.addEventListener("change", displayTracks);
+  }
 });
 
 // Add listener for display mode toggle.
