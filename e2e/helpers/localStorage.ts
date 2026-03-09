@@ -7,10 +7,17 @@ export interface StoredTrack {
 }
 
 /**
- * Generate a unique ID for storage entries.
+ * Generate a hash of content to use as ID.
+ * Matches the hash function in script.js for consistency.
  */
-function generateStorageId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+function hashContent(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
 }
 
 /**
@@ -32,12 +39,12 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
 /**
  * Seed localStorage with tracks after page has loaded.
  * Call this after page.goto(), then reload for the app to pick up the data.
- * Automatically generates IDs if not provided.
+ * Uses content hash as ID to match production behavior.
  */
 export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Promise<void> {
-  // Add IDs to tracks that don't have them
-  const tracksWithIds = tracks.map((track, index) => ({
-    id: track.id || generateStorageId() + index,
+  // Use content hash as ID to match production behavior
+  const tracksWithIds = tracks.map((track) => ({
+    id: track.id || hashContent(track.data),
     name: track.name,
     data: track.data,
   }));

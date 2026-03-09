@@ -152,25 +152,34 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Generate a unique ID for storage entries.
-function generateStorageId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+// Generate a hash of content to use as ID.
+// This allows automatic duplicate detection - same content = same hash.
+function hashContent(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
 }
 
-// Save a GPX file to localStorage. Returns the storage ID.
+// Save a GPX file to localStorage. Returns the storage ID (content hash).
 function saveGPXToLocalStorage(name, gpxText) {
   try {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
 
-    // Check for bitwise duplicate (same GPX data content).
-    const existingIdx = stored.findIndex((e) => e.data === gpxText);
+    // Use content hash as ID - automatically handles duplicates.
+    const id = hashContent(gpxText);
+
+    // Check if this content already exists.
+    const existingIdx = stored.findIndex((e) => e.id === id);
     if (existingIdx >= 0) {
-      // Return the existing entry's ID instead of creating a duplicate.
-      return stored[existingIdx].id;
+      // Return the existing entry's ID.
+      return id;
     }
 
-    // Create new entry with unique ID.
-    const id = generateStorageId();
+    // Create new entry with content hash as ID.
     stored.push({ id, name, data: gpxText });
     localStorage.setItem("gpxUploads", JSON.stringify(stored));
     return id;

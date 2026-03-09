@@ -50,7 +50,11 @@ test.describe('Saved Tracks Dropdown', () => {
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
-    // Select by label text since value is now the ID
+
+    // Verify dropdown has correct label
+    await expect(dropdown.locator('option').nth(1)).toHaveText('track1.gpx');
+
+    // Select by label text since value is now the content hash
     await dropdown.selectOption({ label: 'track1.gpx' });
 
     // Track should be displayed on map
