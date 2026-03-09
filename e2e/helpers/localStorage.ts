@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
+import * as crypto from 'crypto';
 
 export interface StoredTrack {
-  name: string;
   data: string;
 }
 
@@ -19,6 +19,22 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
       }
     }
   });
+}
+
+/**
+ * Seed localStorage with tracks after page has loaded.
+ * Call this after page.goto(), then reload for the app to pick up the data.
+ * IDs are computed from content hash (SHA-256) to match app behavior.
+ */
+export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Promise<void> {
+  // Compute SHA-256 hash as ID for each track (inline the hash function)
+  const tracksWithIds = tracks.map((track) => ({
+    id: crypto.createHash('sha256').update(track.data).digest('hex'),
+    data: track.data,
+  }));
+  await page.evaluate((tracksJson) => {
+    localStorage.setItem('gpxUploads', tracksJson);
+  }, JSON.stringify(tracksWithIds));
 }
 
 /**

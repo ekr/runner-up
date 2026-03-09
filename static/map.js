@@ -59,9 +59,17 @@ function LeafletMap() {
       clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
       let trackId = i;
 
-      clone.querySelector(".delete-button").addEventListener("click", (_e) => {
-        data.splice(trackId, 1);
-        dataUpdated();
+      clone.querySelector(".delete-button").addEventListener("click", (e) => {
+        if (e.shiftKey) {
+          // Shift+click: permanently delete from localStorage
+          const trackDate = getStartDate(track);
+          if (confirm(`Permanently delete track from ${trackDate} from saved tracks?`)) {
+            removeTrack(trackId, true);
+          }
+        } else {
+          // Normal click: remove from display only
+          removeTrack(trackId, false);
+        }
       });
 
       legendContainer.appendChild(clone);

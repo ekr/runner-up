@@ -6,6 +6,7 @@ export const selectors = {
   fileInput: '#track',
   fileLabel: '#file-label',
   addTrackContainer: '#add-track',
+  savedTracksDropdown: '#saved-tracks',
 
   // Map elements
   mapContainer: '#map',

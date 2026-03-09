@@ -14,3 +14,9 @@ playwright/.cache/
 
 # OS
 .DS_Store
+
+# Other
+.runtime/
+.claude/commands/
+.logs/
+.beads/
