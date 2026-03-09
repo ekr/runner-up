@@ -61,7 +61,6 @@ function findOverlappingRegions(track1, track2, options = {}) {
     // Tracks don't start at the same point - try to find where they first intersect
     const intersection = findFirstIntersection(track1, track2, threshold, searchWindow);
     if (!intersection) {
-      console.warn('Tracks do not intersect within search window');
       return null;
     }
     t1Index = intersection.t1Index;
@@ -90,10 +89,7 @@ function findOverlappingRegions(track1, track2, options = {}) {
         t2Index = result.index;
         t1Index++;
       } else {
-        // Tracks diverged
-        console.log(`Tracks diverged at t1=${t1Index}, t2=${t2Index}`);
-
-        // Close current region if it has enough points
+        // Tracks diverged - close current region if it has enough points
         const regionLength = t1Index - currentRegion.track1Start;
         if (regionLength >= minSegmentPoints) {
           regions.push(createRegion(
@@ -115,7 +111,6 @@ function findOverlappingRegions(track1, track2, options = {}) {
       );
 
       if (reconvergence) {
-        console.log(`Tracks reconverged at t1=${reconvergence.t1Index}, t2=${reconvergence.t2Index}`);
         t1Index = reconvergence.t1Index;
         t2Index = reconvergence.t2Index;
         currentRegion = {
@@ -231,6 +226,12 @@ function findReconvergence(track1, track2, t1Start, t2Start, threshold) {
  * Create an OverlapRegion from track indices.
  */
 function createRegion(track1, track2, t1Start, t1End, t2Start, t2End) {
+  // Bounds checking
+  t1Start = Math.max(0, Math.min(t1Start, track1.length - 1));
+  t1End = Math.max(0, Math.min(t1End, track1.length - 1));
+  t2Start = Math.max(0, Math.min(t2Start, track2.length - 1));
+  t2End = Math.max(0, Math.min(t2End, track2.length - 1));
+
   const track1Distance = track1[t1End].distance - track1[t1Start].distance;
   const track2Distance = track2[t2End].distance - track2[t2Start].distance;
   const harmonizedDistance = (track1Distance + track2Distance) / 2;

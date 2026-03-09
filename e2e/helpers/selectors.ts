@@ -29,6 +29,11 @@ export const selectors = {
   trimTracksCheckbox: '#trim-tracks-checkbox',
   trimTracksContainer: '#trim-tracks',
 
+  // Display mode (for alignment)
+  displayModeContainer: '#display-mode',
+  displayModeSelect: '#display-mode-select',
+  alignmentSummary: '#alignment-summary',
+
   // Settings (on settings page)
   unitsDropdown: '#units-control',
   saveButton: '#save-button',

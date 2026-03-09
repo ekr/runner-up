@@ -95,6 +95,11 @@ function displayTracks() {
       tracks = consolidateSegments(tracks, segments);
       normalizeTracks(tracks);
       all_match = true;
+    } else if (displayMode === 'overlapping' && alignment && tracks.length === 2) {
+      // Use new alignment-based harmonization for overlapping regions only
+      const harmonized = createHarmonizedTracks(tracks[0], tracks[1], alignment, true);
+      tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
+      all_match = true;
     } else {
       all_match = false;
     }
