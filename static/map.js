@@ -59,7 +59,14 @@ function LeafletMap() {
       clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
       let trackId = i;
 
-      clone.querySelector(".delete-button").addEventListener("click", (_e) => {
+      clone.querySelector(".delete-button").addEventListener("click", (e) => {
+        if (e.shiftKey) {
+          // Shift+click: permanently delete from localStorage
+          const trackDate = getStartDate(track);
+          if (confirm(`Permanently delete track from ${trackDate} from saved tracks?`)) {
+            deleteGPXFromLocalStorage(trackId);
+          }
+        }
         data.splice(trackId, 1);
         dataUpdated();
         populateSavedTracks();

@@ -162,22 +162,38 @@ function saveGPXToLocalStorage(name, gpxText) {
     localStorage.setItem("gpxUploads", JSON.stringify(stored));
   } catch (e) {
     console.error("Failed to save GPX to localStorage:", e);
+    if (e.name === "QuotaExceededError") {
+      alert("Storage is full. Cannot save track. Try deleting some saved tracks (Shift+click the delete button).");
+    } else {
+      alert("Failed to save track to storage: " + e.message);
+    }
   }
 }
 
-// Load any previously uploaded GPX files from localStorage.
-function loadGPXFromLocalStorage() {
+// Delete a GPX track from localStorage by its index in the data array.
+// We match by comparing start dates since that's what we display.
+function deleteGPXFromLocalStorage(trackIndex) {
   try {
+    const trackToDelete = data[trackIndex];
+    if (!trackToDelete || !trackToDelete.length) return;
+
+    const trackDate = getStartDate(trackToDelete);
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-    for (const entry of stored) {
-      const track = parseGPX(entry.data);
-      data.push(track);
-    }
-    if (stored.length > 0) {
-      dataUpdated();
-    }
+
+    // Find and remove the matching entry by parsing and comparing start dates.
+    const newStored = stored.filter((entry) => {
+      try {
+        const parsedTrack = parseGPX(entry.data);
+        return getStartDate(parsedTrack) !== trackDate;
+      } catch (e) {
+        // Keep corrupted entries for now; user can clean them up separately.
+        return true;
+      }
+    });
+
+    localStorage.setItem("gpxUploads", JSON.stringify(newStored));
   } catch (e) {
-    console.error("Failed to load GPX from localStorage:", e);
+    console.error("Failed to delete GPX from localStorage:", e);
   }
 }
 
@@ -207,7 +223,7 @@ function populateSavedTracks() {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
     for (const entry of stored) {
       const option = document.createElement("option");
-      option.value = "local:" + entry.name;
+      option.value = entry.name;
       option.textContent = entry.name;
       select.appendChild(option);
     }
@@ -226,12 +242,29 @@ function addSavedTrackListener() {
     // Reset dropdown back to placeholder.
     select.selectedIndex = 0;
 
-    const name = value.startsWith("local:") ? value.substring(6) : value;
     try {
       const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-      const entry = stored.find((s) => s.name === name);
+      const entry = stored.find((s) => s.name === value);
       if (entry) {
-        const track = parseGPX(entry.data);
+        let track;
+        try {
+          track = parseGPX(entry.data);
+        } catch (parseErr) {
+          console.error("Failed to parse GPX data:", parseErr);
+          alert("Failed to load track: corrupted GPX data.");
+          return;
+        }
+
+        // Check if this track is already loaded by comparing start dates.
+        const newTrackDate = getStartDate(track);
+        const alreadyLoaded = data.some(
+          (existingTrack) => getStartDate(existingTrack) === newTrackDate
+        );
+        if (alreadyLoaded) {
+          alert("This track is already loaded.");
+          return;
+        }
+
         data.push(track);
         dataUpdated();
       }
