@@ -19,8 +19,8 @@ test.describe('GPX Upload', () => {
     // Wait for track to be processed and displayed
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
-    // Check legend shows the track date
-    await expect(page.locator(selectors.legendContainer)).toContainText('Date: Mon Jan 01 2024');
+    // Check legend shows the track date and time (without 'Date:' prefix)
+    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 01 2024');
   });
 
   test('should display track markers after upload', async ({ page }) => {
@@ -30,7 +30,7 @@ test.describe('GPX Upload', () => {
 
     // Wait for map polyline and marker
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
-    await expect(page.locator(selectors.legendContainer)).toContainText('Date: Mon Jan 15 2024');
+    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 15 2024');
     await expect(page.locator(selectors.mapMarker)).toHaveCount(1);
   });
 });

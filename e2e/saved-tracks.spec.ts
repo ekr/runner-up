@@ -40,9 +40,9 @@ test.describe('Saved Tracks Dropdown', () => {
 
     // Should have placeholder + 2 tracks = 3 options
     await expect(options).toHaveCount(3);
-    // Dropdown text is now the start date of the GPX track
-    await expect(options.nth(1)).toHaveText('Mon Jan 15 2024');
-    await expect(options.nth(2)).toHaveText('Tue Jan 16 2024');
+    // Dropdown text is now the start date+time of the GPX track
+    await expect(options.nth(1)).toContainText('Mon Jan 15 2024');
+    await expect(options.nth(2)).toContainText('Tue Jan 16 2024');
   });
 
   test('should load correct track when selected from dropdown', async ({ page }) => {
@@ -51,16 +51,16 @@ test.describe('Saved Tracks Dropdown', () => {
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
 
-    // Verify dropdown has correct label (now shows track date)
-    await expect(dropdown.locator('option').nth(1)).toHaveText('Mon Jan 15 2024');
+    // Verify dropdown has correct label (now shows track date+time)
+    await expect(dropdown.locator('option').nth(1)).toContainText('Mon Jan 15 2024');
 
-    // Select by label text since value is now the content hash
-    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
+    // Select by index since label now includes time (timezone-dependent)
+    await dropdown.selectOption({ index: 1 });
 
     // Track should be displayed on map
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     // Verify it's the correct track by checking the date (track1 is Jan 15 2024)
-    await expect(page.locator(selectors.legendContainer)).toContainText('Date: Mon Jan 15 2024');
+    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 15 2024');
   });
 
   test('should remove loaded track from dropdown', async ({ page }) => {
@@ -75,13 +75,13 @@ test.describe('Saved Tracks Dropdown', () => {
     // Initially should have placeholder + 2 tracks
     await expect(dropdown.locator('option')).toHaveCount(3);
 
-    // Load track1 (now selected by date)
-    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
+    // Load track1 (select by index since label includes timezone-dependent time)
+    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Dropdown should now only have placeholder + track2 (track1 is being displayed)
     await expect(dropdown.locator('option')).toHaveCount(2);
-    await expect(dropdown.locator('option').nth(1)).toHaveText('Tue Jan 16 2024');
+    await expect(dropdown.locator('option').nth(1)).toContainText('Tue Jan 16 2024');
   });
 
   test('should remove track from display on delete click', async ({ page }) => {
@@ -89,7 +89,7 @@ test.describe('Saved Tracks Dropdown', () => {
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
-    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
+    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Track should not be in dropdown while displayed
@@ -115,7 +115,7 @@ test.describe('Saved Tracks Dropdown', () => {
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
-    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
+    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Set up dialog handler for confirm dialog
@@ -155,8 +155,8 @@ test.describe('Saved Tracks Dropdown', () => {
     const dropdown = page.locator(selectors.savedTracksDropdown);
     await expect(dropdown.locator('option')).toHaveCount(2);
 
-    // Can load track from dropdown (now shows date instead of filename)
-    await dropdown.selectOption({ label: 'Mon Jan 15 2024' });
+    // Can load track from dropdown (now shows date+time instead of filename)
+    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
   });
 

@@ -54,8 +54,7 @@ function LeafletMap() {
 
       const legendLine = document.getElementById("legend-line");
       const clone = legendLine.content.cloneNode(true);
-      clone.querySelector("#legend-text").textContent =
-        `Date: ${getStartDate(track)}`;
+      clone.querySelector("#legend-text").textContent = getStartDate(track);
       clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
       let trackId = i;
 
