@@ -108,11 +108,11 @@ function addFileListener(name) {
     if (file) {
       const reader = new FileReader();
       console.log(file);
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const gpxText = e.target.result;
         const track = parseGPX(gpxText);
         data.push(track);
-        const storageId = saveGPXToLocalStorage(file.name, gpxText);
+        const storageId = await saveGPXToLocalStorage(file.name, gpxText);
         dataToStorageId.push(storageId);
         dataUpdated();
         populateSavedTracks();
@@ -152,25 +152,23 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Generate a hash of content to use as ID.
-// This allows automatic duplicate detection - same content = same hash.
-function hashContent(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
+// Generate SHA-256 hash of content using WebCrypto.
+// Returns hex string of the hash.
+async function hashContent(str) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Save a GPX file to localStorage. Returns the storage ID (content hash).
-function saveGPXToLocalStorage(name, gpxText) {
+async function saveGPXToLocalStorage(name, gpxText) {
   try {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
 
-    // Use content hash as ID - automatically handles duplicates.
-    const id = hashContent(gpxText);
+    // Use SHA-256 content hash as ID - automatically handles duplicates.
+    const id = await hashContent(gpxText);
 
     // Check if this content already exists.
     const existingIdx = stored.findIndex((e) => e.id === id);
