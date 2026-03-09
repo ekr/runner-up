@@ -15,7 +15,8 @@ let tracks = [];
 let segments = null;
 
 // The alignment result from findOverlappingRegions (new).
-let alignment = null;
+// Using var so it's accessible via window.alignment for testing.
+var alignment = null;
 
 // Whether we have a single course where all the tracks line
 // up, either because it was created that way or because
