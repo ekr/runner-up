@@ -111,6 +111,7 @@ function addFileListener(name) {
         data.push(track);
         saveGPXToLocalStorage(file.name, gpxText);
         dataUpdated();
+        populateSavedTracks();
       };
       reader.readAsText(file);
     }
@@ -261,7 +262,6 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchGPXTrack("priest-sombroso.gpx");
   }
 
-  loadGPXFromLocalStorage();
   addFileListener("track");
   addSavedTrackListener();
   populateSavedTracks();

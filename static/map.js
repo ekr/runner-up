@@ -61,13 +61,8 @@ function LeafletMap() {
 
       clone.querySelector(".delete-button").addEventListener("click", (_e) => {
         data.splice(trackId, 1);
-
-        // Remove from localStorage
-        const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-        stored.splice(trackId, 1);
-        localStorage.setItem("gpxUploads", JSON.stringify(stored));
-
         dataUpdated();
+        populateSavedTracks();
       });
 
       legendContainer.appendChild(clone);
