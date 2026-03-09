@@ -363,11 +363,6 @@ document.addEventListener("DOMContentLoaded", () => {
   populateSavedTracks();
   addGraphTypeListener();
   addDisplayModeListener();
-
-  const trimTracksCheckbox = document.querySelector("#trim-tracks-checkbox");
-  if (trimTracksCheckbox) {
-    trimTracksCheckbox.addEventListener("change", displayTracks);
-  }
 });
 
 // Add listener for display mode toggle.

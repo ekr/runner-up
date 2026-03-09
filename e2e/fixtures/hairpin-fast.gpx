@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Hairpin Out-and-Back - Fast Pace</name>
+    <trkseg>
+      <!-- Going out (north) - fast pace (5 sec intervals) -->
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:00:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285100" lon="-122.055000"><time>2024-01-01T12:00:05Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285200" lon="-122.055000"><time>2024-01-01T12:00:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285300" lon="-122.055000"><time>2024-01-01T12:00:15Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285400" lon="-122.055000"><time>2024-01-01T12:00:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285500" lon="-122.055000"><time>2024-01-01T12:00:25Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285600" lon="-122.055000"><time>2024-01-01T12:00:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285700" lon="-122.055000"><time>2024-01-01T12:00:35Z</time><ele>100</ele></trkpt>
+      <!-- Hairpin turn (sharp turnaround) -->
+      <trkpt lat="37.285800" lon="-122.055000"><time>2024-01-01T12:00:40Z</time><ele>100</ele></trkpt>
+      <!-- Coming back (south) - same route, fast pace -->
+      <trkpt lat="37.285700" lon="-122.055000"><time>2024-01-01T12:00:45Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285600" lon="-122.055000"><time>2024-01-01T12:00:50Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285500" lon="-122.055000"><time>2024-01-01T12:00:55Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285400" lon="-122.055000"><time>2024-01-01T12:01:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285300" lon="-122.055000"><time>2024-01-01T12:01:05Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285200" lon="-122.055000"><time>2024-01-01T12:01:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285100" lon="-122.055000"><time>2024-01-01T12:01:15Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:01:20Z</time><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

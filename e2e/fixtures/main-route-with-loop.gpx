@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Main Route - With Extra Loop</name>
+    <trkseg>
+      <!-- Main route going east - same as no-loop track -->
+      <trkpt lat="37.285000" lon="-122.060000"><time>2024-01-01T12:00:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.059000"><time>2024-01-01T12:00:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.058000"><time>2024-01-01T12:00:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.057000"><time>2024-01-01T12:00:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.056000"><time>2024-01-01T12:00:40Z</time><ele>100</ele></trkpt>
+      <!-- Junction point - start of extra loop -->
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:00:50Z</time><ele>100</ele></trkpt>
+      <!-- Extra loop going north then east then south then west back to junction -->
+      <trkpt lat="37.285500" lon="-122.055000"><time>2024-01-01T12:01:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.286000" lon="-122.055000"><time>2024-01-01T12:01:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.286000" lon="-122.054500"><time>2024-01-01T12:01:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.286000" lon="-122.054000"><time>2024-01-01T12:01:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285500" lon="-122.054000"><time>2024-01-01T12:01:40Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.054000"><time>2024-01-01T12:01:50Z</time><ele>100</ele></trkpt>
+      <!-- Return to main route and continue -->
+      <trkpt lat="37.285000" lon="-122.053000"><time>2024-01-01T12:02:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.052000"><time>2024-01-01T12:02:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.051000"><time>2024-01-01T12:02:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.050000"><time>2024-01-01T12:02:30Z</time><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

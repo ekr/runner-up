@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Main Route - No Loop</name>
+    <trkseg>
+      <!-- Main route going east -->
+      <trkpt lat="37.285000" lon="-122.060000"><time>2024-01-01T12:00:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.059000"><time>2024-01-01T12:00:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.058000"><time>2024-01-01T12:00:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.057000"><time>2024-01-01T12:00:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.056000"><time>2024-01-01T12:00:40Z</time><ele>100</ele></trkpt>
+      <!-- Junction point where loop would branch off -->
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:00:50Z</time><ele>100</ele></trkpt>
+      <!-- Continue on main route (no loop) -->
+      <trkpt lat="37.285000" lon="-122.054000"><time>2024-01-01T12:01:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.053000"><time>2024-01-01T12:01:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.052000"><time>2024-01-01T12:01:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.051000"><time>2024-01-01T12:01:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.050000"><time>2024-01-01T12:01:40Z</time><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

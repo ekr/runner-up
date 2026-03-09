@@ -12,7 +12,7 @@ test.describe('Alignment with Different Sampling Rates (DTW)', () => {
     await page.reload();
   });
 
-  test('same course with different sampling rates should produce single segment', async ({ page }) => {
+  test('same course with different sampling rates should produce single segment with valid DTW alignment', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
     // Load dense track (100 points)
@@ -37,36 +37,17 @@ test.describe('Alignment with Different Sampling Rates (DTW)', () => {
     expect(alignment.overlappingRegions.length).toBe(1);
     expect(alignment.hasMultipleSegments).toBe(false);
 
+    // DTW should produce an alignment path
+    expect(alignment.alignment).toBeDefined();
+    expect(alignment.alignment.length).toBeGreaterThan(0);
+
     // Display mode selector should be hidden (only shows for multiple segments)
     await expect(page.locator('#display-mode')).toBeHidden();
 
     // Trim tracks should also be hidden
     await expect(page.locator('#trim-tracks')).toBeHidden();
-  });
-
-  test('DTW alignment handles different point densities correctly', async ({ page }) => {
-    const fileInput = page.locator(selectors.fileInput);
-
-    // Load both tracks
-    await fileInput.setInputFiles(path.join(fixturesDir, 'same-course-dense.gpx'));
-    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
-
-    await fileInput.setInputFiles(path.join(fixturesDir, 'same-course-sparse.gpx'));
-    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
-
-    // Wait for alignment
-    await page.waitForTimeout(500);
 
     // Check that both map markers are visible
     await expect(page.locator(selectors.mapMarker)).toHaveCount(2, { timeout: 5000 });
-
-    // Verify alignment has the raw DTW alignment path
-    const alignment = await page.evaluate(() => {
-      return (window as any).alignment;
-    });
-
-    // DTW should produce an alignment path
-    expect(alignment.alignment).toBeDefined();
-    expect(alignment.alignment.length).toBeGreaterThan(0);
   });
 });

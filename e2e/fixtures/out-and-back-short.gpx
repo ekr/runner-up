@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Out and Back - Short (turns around earlier)</name>
+    <trkseg>
+      <!-- Going out (north) -->
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:00:00Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285100" lon="-122.055000"><time>2024-01-01T12:00:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285200" lon="-122.055000"><time>2024-01-01T12:00:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285300" lon="-122.055000"><time>2024-01-01T12:00:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285400" lon="-122.055000"><time>2024-01-01T12:00:40Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285500" lon="-122.055000"><time>2024-01-01T12:00:50Z</time><ele>100</ele></trkpt>
+      <!-- Turnaround point (shorter) -->
+      <trkpt lat="37.285600" lon="-122.055000"><time>2024-01-01T12:01:00Z</time><ele>100</ele></trkpt>
+      <!-- Coming back (south) -->
+      <trkpt lat="37.285500" lon="-122.055000"><time>2024-01-01T12:01:10Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285400" lon="-122.055000"><time>2024-01-01T12:01:20Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285300" lon="-122.055000"><time>2024-01-01T12:01:30Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285200" lon="-122.055000"><time>2024-01-01T12:01:40Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285100" lon="-122.055000"><time>2024-01-01T12:01:50Z</time><ele>100</ele></trkpt>
+      <trkpt lat="37.285000" lon="-122.055000"><time>2024-01-01T12:02:00Z</time><ele>100</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
