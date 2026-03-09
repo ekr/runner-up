@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store

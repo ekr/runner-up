@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunnerUp Test">
+  <trk>
+    <name>Track 2 - Evening Run</name>
+    <trkseg>
+      <trkpt lat="37.7749" lon="-122.4194">
+        <ele>10</ele>
+        <time>2024-01-16T18:00:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7755" lon="-122.4185">
+        <ele>12</ele>
+        <time>2024-01-16T18:00:35Z</time>
+      </trkpt>
+      <trkpt lat="37.7760" lon="-122.4175">
+        <ele>15</ele>
+        <time>2024-01-16T18:01:05Z</time>
+      </trkpt>
+      <trkpt lat="37.7765" lon="-122.4165">
+        <ele>18</ele>
+        <time>2024-01-16T18:01:40Z</time>
+      </trkpt>
+      <trkpt lat="37.7770" lon="-122.4155">
+        <ele>22</ele>
+        <time>2024-01-16T18:02:10Z</time>
+      </trkpt>
+      <trkpt lat="37.7775" lon="-122.4145">
+        <ele>25</ele>
+        <time>2024-01-16T18:02:45Z</time>
+      </trkpt>
+      <trkpt lat="37.7780" lon="-122.4135">
+        <ele>28</ele>
+        <time>2024-01-16T18:03:15Z</time>
+      </trkpt>
+      <trkpt lat="37.7785" lon="-122.4125">
+        <ele>30</ele>
+        <time>2024-01-16T18:03:50Z</time>
+      </trkpt>
+      <trkpt lat="37.7790" lon="-122.4115">
+        <ele>28</ele>
+        <time>2024-01-16T18:04:20Z</time>
+      </trkpt>
+      <trkpt lat="37.7795" lon="-122.4105">
+        <ele>25</ele>
+        <time>2024-01-16T18:04:55Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
