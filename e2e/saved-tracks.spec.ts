@@ -3,9 +3,15 @@ import { selectors } from './helpers/selectors';
 import { clearLocalStorageNow, seedLocalStorageNow, getStoredTracks } from './helpers/localStorage';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 const track1Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track1.gpx'), 'utf-8');
 const track2Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track2.gpx'), 'utf-8');
+// hairpin-fast starts ~55km away from track1/track2 (Sunnyvale vs SF)
+const hairpinFastData = fs.readFileSync(path.join(__dirname, 'fixtures', 'hairpin-fast.gpx'), 'utf-8');
+
+// Compute content hashes (IDs) for tracks - IndexedDB returns in key order, not insertion order
+const track1Hash = crypto.createHash('sha256').update(track1Data).digest('hex');
 
 test.describe('Saved Tracks Dropdown', () => {
   test.beforeEach(async ({ page }) => {
@@ -180,5 +186,34 @@ test.describe('Saved Tracks Dropdown', () => {
     // Should only have one entry in localStorage (not duplicated)
     const stored = await getStoredTracks(page);
     expect(stored).toHaveLength(1);
+  });
+
+  test('should sort saved tracks by proximity to displayed track', async ({ page }) => {
+    // Seed with 3 tracks:
+    // - track1: starts in SF (37.7749, -122.4194)
+    // - track2: starts in SF (same location as track1)
+    // - hairpin-fast: starts in Sunnyvale (~55km away)
+    await seedLocalStorageNow(page, [
+      { data: track1Data },
+      { data: track2Data },
+      { data: hairpinFastData },
+    ]);
+    await page.reload();
+
+    const dropdown = page.locator(selectors.savedTracksDropdown);
+
+    // Load track1 by its hash value (IndexedDB returns in key order, not insertion order)
+    await dropdown.selectOption({ value: track1Hash });
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    // Now dropdown should have 2 remaining tracks, sorted by proximity:
+    // 1. track2 (same start location - 0 km away)
+    // 2. hairpin-fast (~55km away in Sunnyvale)
+    const options = dropdown.locator('option');
+    await expect(options).toHaveCount(3); // placeholder + 2 tracks
+
+    // track2 (Jan 16) should appear before hairpin-fast (Jan 01) because it's closer
+    await expect(options.nth(1)).toContainText('Tue Jan 16 2024'); // track2
+    await expect(options.nth(2)).toContainText('Mon Jan 01 2024'); // hairpin-fast
   });
 });
