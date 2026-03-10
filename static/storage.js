@@ -41,11 +41,8 @@ async function saveGPXToStorage(gpxText) {
     const db = await openDB();
 
     // Use SHA-256 content hash as ID - automatically handles duplicates.
-    const encoder = new TextEncoder();
-    const dataBytes = encoder.encode(gpxText);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(gpxText));
+    const id = [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
 
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');

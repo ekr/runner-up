@@ -49,12 +49,6 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
           resolve();
         }
       };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: 'id' });
-        }
-      };
     });
   }, { dbName: DB_NAME, storeName: STORE_NAME });
 }
@@ -101,12 +95,6 @@ export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Pr
           resolve();
         }
       };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: 'id' });
-        }
-      };
     });
   }, { tracks: tracksWithIds, dbName: DB_NAME, storeName: STORE_NAME });
 }
@@ -137,12 +125,6 @@ export async function getStoredTracks(page: Page): Promise<StoredTrack[]> {
           db.close();
           reject(getAllReq.error);
         };
-      };
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: 'id' });
-        }
       };
     });
   }, { dbName: DB_NAME, storeName: STORE_NAME });
