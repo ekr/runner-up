@@ -4,7 +4,7 @@ let maxTime = -Infinity;
 // The raw GPX data we loaded in.
 let data = [];
 
-// Map from data index to localStorage entry ID.
+// Map from data index to IndexedDB storage ID.
 let dataToStorageId = [];
 
 // The tracks to actually plot transformed into ready-to-plot
@@ -146,7 +146,7 @@ function addFileListener(name) {
         const gpxText = e.target.result;
         const track = parseGPX(gpxText);
         data.push(track);
-        const storageId = await saveGPXToLocalStorage(gpxText);
+        const storageId = await saveGPXToStorage(gpxText);
         dataToStorageId.push(storageId);
         dataUpdated();
         populateSavedTracks();
@@ -186,52 +186,11 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Save a GPX file to localStorage. Returns the storage ID (content hash).
-async function saveGPXToLocalStorage(gpxText) {
-  try {
-    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+// Save a GPX file to IndexedDB. Returns the storage ID (content hash).
+// Uses saveGPXToStorage from storage.js.
 
-    // Use SHA-256 content hash as ID - automatically handles duplicates.
-    const encoder = new TextEncoder();
-    const dataBytes = encoder.encode(gpxText);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    // Check if this content already exists.
-    const existingIdx = stored.findIndex((e) => e.id === id);
-    if (existingIdx >= 0) {
-      // Return the existing entry's ID.
-      return id;
-    }
-
-    // Create new entry with content hash as ID.
-    stored.push({ id, data: gpxText });
-    localStorage.setItem("gpxUploads", JSON.stringify(stored));
-    return id;
-  } catch (e) {
-    console.error("Failed to save GPX to localStorage:", e);
-    if (e.name === "QuotaExceededError") {
-      alert("Storage is full. Cannot save track. Try deleting some saved tracks (Shift+click the delete button).");
-    } else {
-      alert("Failed to save track to storage: " + e.message);
-    }
-    return null;
-  }
-}
-
-// Delete a GPX track from localStorage by its storage ID.
-function deleteGPXFromLocalStorage(storageId) {
-  if (!storageId) return;
-
-  try {
-    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-    const newStored = stored.filter((entry) => entry.id !== storageId);
-    localStorage.setItem("gpxUploads", JSON.stringify(newStored));
-  } catch (e) {
-    console.error("Failed to delete GPX from localStorage:", e);
-  }
-}
+// Delete a GPX track from IndexedDB by its storage ID.
+// Uses deleteGPXFromStorage from storage.js.
 
 // Function to fetch and display a GPX track
 function fetchGPXTrack(url) {
@@ -240,7 +199,7 @@ function fetchGPXTrack(url) {
     .then((gpxData) => {
       const track = parseGPX(gpxData);
       data.push(track);
-      dataToStorageId.push(null); // Not from localStorage
+      dataToStorageId.push(null); // Not from IndexedDB
       dataUpdated();
     })
     .catch((error) => console.error("Error loading GPX:", error));
@@ -251,9 +210,9 @@ function getDisplayedStorageIds() {
   return new Set(dataToStorageId.filter((id) => id !== null));
 }
 
-// Populate the saved tracks dropdown from localStorage.
+// Populate the saved tracks dropdown from IndexedDB.
 // Excludes tracks that are already being displayed.
-function populateSavedTracks() {
+async function populateSavedTracks() {
   const select = document.getElementById("saved-tracks");
 
   // Clear existing options except the default placeholder.
@@ -264,9 +223,9 @@ function populateSavedTracks() {
   // Get IDs of tracks currently displayed.
   const displayedIds = getDisplayedStorageIds();
 
-  // Add localStorage tracks that aren't already displayed.
+  // Add IndexedDB tracks that aren't already displayed.
   try {
-    const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
+    const stored = await getAllStoredGPX();
     for (const entry of stored) {
       // Skip if already displayed.
       if (displayedIds.has(entry.id)) {
@@ -284,14 +243,14 @@ function populateSavedTracks() {
       select.appendChild(option);
     }
   } catch (e) {
-    console.error("Failed to read localStorage tracks:", e);
+    console.error("Failed to read IndexedDB tracks:", e);
   }
 }
 
 // Handle saved-tracks dropdown selection.
 function addSavedTrackListener() {
   const select = document.getElementById("saved-tracks");
-  select.addEventListener("change", (e) => {
+  select.addEventListener("change", async (e) => {
     const storageId = e.target.value;
     if (!storageId) return;
 
@@ -299,8 +258,7 @@ function addSavedTrackListener() {
     select.selectedIndex = 0;
 
     try {
-      const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-      const entry = stored.find((s) => s.id === storageId);
+      const entry = await getGPXById(storageId);
       if (entry) {
         let track;
         try {
@@ -317,18 +275,18 @@ function addSavedTrackListener() {
         populateSavedTracks();
       }
     } catch (err) {
-      console.error("Failed to load track from localStorage:", err);
+      console.error("Failed to load track from IndexedDB:", err);
     }
   });
 }
 
 // Remove a track from display by its data index.
-// If permanent is true, also delete from localStorage.
+// If permanent is true, also delete from IndexedDB.
 function removeTrack(trackIndex, permanent) {
   const storageId = dataToStorageId[trackIndex];
 
   if (permanent && storageId) {
-    deleteGPXFromLocalStorage(storageId);
+    deleteGPXFromStorage(storageId);
   }
 
   data.splice(trackIndex, 1);
