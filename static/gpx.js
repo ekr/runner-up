@@ -53,18 +53,21 @@ function getPositionAtTime(track, time) {
     return null; // Handle empty or single-point tracks
   }
 
-  if (time <= track[0].time) {
+  // Use displayTime if available (for harmonized overlapping regions)
+  const getTime = (point) => point.displayTime !== undefined ? point.displayTime : point.time;
+
+  if (time <= getTime(track[0])) {
     return track[0];
   }
 
-  if (time >= track[track.length - 1].time) {
+  if (time >= getTime(track[track.length - 1])) {
     return track[track.length - 1];
   }
 
   for (let i = 1; i < track.length; i++) {
-    if (track[i].time >= time) {
-      const t1 = track[i - 1].time;
-      const t2 = track[i].time;
+    if (getTime(track[i]) >= time) {
+      const t1 = getTime(track[i - 1]);
+      const t2 = getTime(track[i]);
 
       if (t1 === t2) {
         return track[i]; // Handle cases where timestamps are the same

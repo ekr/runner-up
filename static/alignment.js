@@ -312,11 +312,12 @@ function createHarmonizedTracks(track1, track2, alignment, overlappingOnly = fal
 
 /**
  * Extract only overlapping regions and harmonize distances.
+ * Also adjusts time to be continuous across segments (cutting out non-overlapping time).
  */
 function extractAndHarmonizeRegions(track, regions, trackIndex) {
   const result = [];
   let cumulativeHarmonizedDistance = 0;
-  let lastTime = 0;
+  let cumulativeTime = 0;
 
   for (const region of regions) {
     const range = trackIndex === 0 ? region.track1Range : region.track2Range;
@@ -325,28 +326,33 @@ function extractAndHarmonizeRegions(track, regions, trackIndex) {
 
     const segmentStart = track[range[0]];
     const segmentStartDistance = segmentStart.distance;
+    const segmentStartTime = segmentStart.time;
 
-    // Add gap between segments if not first
-    if (result.length > 0) {
-      // Use time gap from the track as a guide
-      const timeGap = Math.max(1, track[range[0]].time - lastTime);
-      lastTime = track[range[0]].time;
+    // Add a small gap between segments (use the typical sample interval)
+    if (result.length > 0 && range[0] + 1 <= range[1]) {
+      const sampleInterval = track[range[0] + 1].time - track[range[0]].time;
+      cumulativeTime += Math.max(1, sampleInterval);
     }
 
     for (let i = range[0]; i <= range[1]; i++) {
       const point = track[i];
       const distanceInSegment = point.distance - segmentStartDistance;
       const scaledDistance = distanceInSegment * scaleFactor;
+      const timeInSegment = point.time - segmentStartTime;
 
       result.push({
         ...point,
         distance: cumulativeHarmonizedDistance + scaledDistance,
         normalizedDistance: cumulativeHarmonizedDistance + scaledDistance,
-        originalDistance: point.distance
+        originalDistance: point.distance,
+        displayTime: cumulativeTime + timeInSegment,
+        originalTime: point.time
       });
-
-      lastTime = point.time;
     }
+
+    // Update cumulative time with the duration of this segment
+    const segmentEndTime = track[range[1]].time;
+    cumulativeTime += segmentEndTime - segmentStartTime;
 
     cumulativeHarmonizedDistance += region.harmonizedDistance;
   }

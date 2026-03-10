@@ -112,6 +112,10 @@ function displayTracks() {
   tracks.forEach((track) => {
     track.forEach((point) => {
       point.displayDistance = point.normalizedDistance ?? point.distance;
+      // Use displayTime if available (from harmonized overlapping regions), otherwise use original time
+      if (point.displayTime === undefined) {
+        point.displayTime = point.time;
+      }
     });
   });
 
@@ -122,8 +126,9 @@ function displayTracks() {
   for (i in tracks) {
     const track = tracks[i];
 
-    minTime = Math.min(track[0].time, minTime);
-    maxTime = Math.max(track[track.length - 1].time, maxTime);
+    // Use displayTime for slider bounds (handles harmonized overlapping regions)
+    minTime = Math.min(track[0].displayTime, minTime);
+    maxTime = Math.max(track[track.length - 1].displayTime, maxTime);
 
     lmap.drawTrack(track);
   }

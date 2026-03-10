@@ -43,20 +43,28 @@ function drawDifferenceGraph(
   }
 
   let differences = [];
-  const graphStart = minTime;
+  // Use displayTime for graph bounds (handles harmonized overlapping regions)
+  const graphStart = tracks[0][0].displayTime;
   const graphEnd = tracks.reduce(
-    (a, c) => Math.min(a, c[c.length - 1].time),
+    (a, c) => Math.min(a, c[c.length - 1].displayTime),
     Infinity,
   );
   let comparisonTracks = tracks.slice(1);
 
-  for (let t = graphStart; t <= graphEnd; t += 1) {
-    const baseline = tracks[0][t][y_name];
+  // Iterate over actual track points instead of assuming time=index
+  for (let i = 0; i < tracks[0].length; i++) {
+    const point = tracks[0][i];
+    const t = point.displayTime;
+
+    // Skip points outside our graph range
+    if (t < graphStart || t > graphEnd) continue;
+
+    const baseline = point[y_name];
     const x_value =
-      x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
+      x_name === "time" ? t : point[x_name === "displayDistance" ? "displayDistance" : x_name];
 
     comparisonTracks.map((track) => {
-      const comparator = getValueAtPosition(track, x_name, x_value, y_name);
+      const comparator = getValueAtPosition(track, x_name === "time" ? "displayTime" : x_name, x_value, y_name);
       differences.push({
         time: t,
         diff: transform(comparator) - transform(baseline),
@@ -125,10 +133,10 @@ function drawElevationGraph(currentTime) {
   let dots = [];
 
   tracks.forEach((track, index) => {
-    // First get the distance on this track.
+    // First get the distance on this track (use displayTime for harmonized tracks).
     const distance = getValueAtPosition(
       track,
-      "time",
+      "displayTime",
       currentTime,
       "displayDistance",
     );
