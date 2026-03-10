@@ -6,6 +6,8 @@ import * as path from 'path';
 
 const track1Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track1.gpx'), 'utf-8');
 const track2Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track2.gpx'), 'utf-8');
+// hairpin-fast starts ~55km away from track1/track2 (Sunnyvale vs SF)
+const hairpinFastData = fs.readFileSync(path.join(__dirname, 'fixtures', 'hairpin-fast.gpx'), 'utf-8');
 
 test.describe('Saved Tracks Dropdown', () => {
   test.beforeEach(async ({ page }) => {
@@ -180,5 +182,34 @@ test.describe('Saved Tracks Dropdown', () => {
     // Should only have one entry in localStorage (not duplicated)
     const stored = await getStoredTracks(page);
     expect(stored).toHaveLength(1);
+  });
+
+  test('should sort saved tracks by proximity to displayed track', async ({ page }) => {
+    // Seed with 3 tracks:
+    // - track1: starts in SF (37.7749, -122.4194)
+    // - track2: starts in SF (same location as track1)
+    // - hairpin-fast: starts in Sunnyvale (~55km away)
+    await seedLocalStorageNow(page, [
+      { data: track1Data },
+      { data: track2Data },
+      { data: hairpinFastData },
+    ]);
+    await page.reload();
+
+    const dropdown = page.locator(selectors.savedTracksDropdown);
+
+    // Load track1 (first track that starts in SF)
+    await dropdown.selectOption({ index: 1 });
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    // Now dropdown should have 2 remaining tracks, sorted by proximity:
+    // 1. track2 (same start location - 0 km away)
+    // 2. hairpin-fast (~55km away in Sunnyvale)
+    const options = dropdown.locator('option');
+    await expect(options).toHaveCount(3); // placeholder + 2 tracks
+
+    // track2 (Jan 16) should appear before hairpin-fast (Jan 01) because it's closer
+    await expect(options.nth(1)).toContainText('Tue Jan 16 2024'); // track2
+    await expect(options.nth(2)).toContainText('Mon Jan 01 2024'); // hairpin-fast
   });
 });

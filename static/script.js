@@ -212,6 +212,7 @@ function getDisplayedStorageIds() {
 
 // Populate the saved tracks dropdown from IndexedDB.
 // Excludes tracks that are already being displayed.
+// If a track is displayed, sorts remaining tracks by proximity to displayed track's start.
 async function populateSavedTracks() {
   const select = document.getElementById("saved-tracks");
 
@@ -223,23 +224,58 @@ async function populateSavedTracks() {
   // Get IDs of tracks currently displayed.
   const displayedIds = getDisplayedStorageIds();
 
+  // Get reference point for sorting (start of first displayed track).
+  let referencePoint = null;
+  if (data.length > 0 && data[0].length > 0) {
+    referencePoint = { lat: data[0][0].lat, lon: data[0][0].lon };
+  }
+
   // Add IndexedDB tracks that aren't already displayed.
   try {
     const stored = await getAllStoredGPX();
+
+    // Build array of track entries with parsed data for sorting.
+    const trackEntries = [];
     for (const entry of stored) {
       // Skip if already displayed.
       if (displayedIds.has(entry.id)) {
         continue;
       }
+      let track = null;
+      let displayText = "Unknown date";
+      try {
+        track = parseGPX(entry.data);
+        displayText = getStartDate(track);
+      } catch (parseErr) {
+        // Keep null track, will sort to end
+      }
+      trackEntries.push({ entry, track, displayText });
+    }
+
+    // Sort by proximity to displayed track's start point (closest first).
+    if (referencePoint) {
+      trackEntries.sort((a, b) => {
+        // Tracks that failed to parse go to end.
+        if (!a.track || a.track.length === 0) return 1;
+        if (!b.track || b.track.length === 0) return -1;
+
+        const distA = getDistanceFromLatLonInKm(
+          referencePoint.lat, referencePoint.lon,
+          a.track[0].lat, a.track[0].lon
+        );
+        const distB = getDistanceFromLatLonInKm(
+          referencePoint.lat, referencePoint.lon,
+          b.track[0].lat, b.track[0].lon
+        );
+        return distA - distB;
+      });
+    }
+
+    // Add sorted entries to dropdown.
+    for (const { entry, displayText } of trackEntries) {
       const option = document.createElement("option");
       option.value = entry.id;
-      // Parse GPX to get the start date for display.
-      try {
-        const track = parseGPX(entry.data);
-        option.textContent = getStartDate(track);
-      } catch (parseErr) {
-        option.textContent = "Unknown date";
-      }
+      option.textContent = displayText;
       select.appendChild(option);
     }
   } catch (e) {
