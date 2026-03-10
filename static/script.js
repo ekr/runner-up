@@ -2,7 +2,8 @@ let minTime = Infinity;
 let maxTime = -Infinity;
 
 // The raw GPX data we loaded in.
-let data = [];
+// Using var so it's accessible via window.data for graphs.js
+var data = [];
 
 // Map from data index to IndexedDB storage ID.
 let dataToStorageId = [];

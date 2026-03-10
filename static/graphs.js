@@ -11,6 +11,7 @@ function drawGraphs(currentTime, all_match) {
 
   drawElevationGraph(currentTime, all_match);
 
+  // Draw difference graph for fully matched tracks
   if (all_match) {
     if (type === "time") {
       drawDifferenceGraph(
@@ -21,6 +22,38 @@ function drawGraphs(currentTime, all_match) {
       );
     } else if (type === "distance") {
       drawDifferenceGraph(
+        currentTime,
+        "time",
+        "displayDistance",
+        `Distance Behind (${Units().distanceDiffUnits()})`,
+        (v) => Units().distanceDiffValue(-1 * v),
+      );
+    }
+  } else if (window.alignment && window.alignment.overlappingRegions && window.alignment.overlappingRegions.length > 0 && window.data && window.data.length >= 2) {
+    // Partial overlap - draw difference graph for overlapping regions only
+    // Create harmonized tracks for the overlapping portions
+    const harmonized = createHarmonizedTracks(window.data[0], window.data[1], window.alignment, true);
+    const harmonizedTracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
+
+    // Normalize the harmonized tracks
+    normalizeTracks(harmonizedTracks);
+    harmonizedTracks.forEach((track) => {
+      track.forEach((point) => {
+        point.displayDistance = point.normalizedDistance ?? point.distance;
+      });
+    });
+
+    if (type === "time") {
+      drawDifferenceGraphForTracks(
+        harmonizedTracks,
+        currentTime,
+        "displayDistance",
+        "time",
+        "Time Behind (s)",
+      );
+    } else if (type === "distance") {
+      drawDifferenceGraphForTracks(
+        harmonizedTracks,
         currentTime,
         "time",
         "displayDistance",
@@ -82,6 +115,74 @@ function drawDifferenceGraph(
         y: "y",
         text: "label",
       }),*/
+    ],
+    x: {
+      type: "linear",
+      label: "Time (s)",
+    },
+    y: {
+      label: y_label,
+    },
+  });
+
+  graphContainer.appendChild(chart);
+}
+
+// Draw difference graph for specific tracks (used for partial overlap)
+function drawDifferenceGraphForTracks(
+  inputTracks,
+  currentTime,
+  x_name,
+  y_name,
+  y_label,
+  transform = (v) => v,
+) {
+  if (inputTracks.length < 2) {
+    return;
+  }
+
+  let differences = [];
+  const graphStart = inputTracks[0][0].time;
+  const graphEnd = inputTracks.reduce(
+    (a, c) => Math.min(a, c[c.length - 1].time),
+    Infinity,
+  );
+  let comparisonTracks = inputTracks.slice(1);
+
+  for (let t = graphStart; t <= graphEnd; t += 1) {
+    // Use getValueAtPosition for proper interpolation
+    const baseline = getValueAtPosition(inputTracks[0], "time", t, y_name);
+    if (baseline === null) continue;
+
+    const x_value =
+      x_name === "time" ? t : getValueAtPosition(inputTracks[0], "time", t, x_name);
+
+    comparisonTracks.map((track) => {
+      const comparator = getValueAtPosition(track, x_name, x_value, y_name);
+      if (comparator === null) return;
+      differences.push({
+        time: t,
+        diff: transform(comparator) - transform(baseline),
+        trackDate: getStartDate(track),
+      });
+    });
+  }
+
+  if (differences.length === 0) {
+    return;
+  }
+
+  const graphContainer = document.getElementById("graph");
+
+  const chart = Plot.plot({
+    width: graphContainer.clientWidth,
+    marks: [
+      Plot.line(differences, {
+        x: "time",
+        y: "diff",
+        stroke: (d) => d.trackDate,
+      }),
+      Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
     ],
     x: {
       type: "linear",
