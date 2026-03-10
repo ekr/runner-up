@@ -9,7 +9,8 @@ let dataToStorageId = [];
 
 // The tracks to actually plot transformed into ready-to-plot
 // version.
-let tracks = [];
+// Using var so it's accessible via window.tracks for testing.
+var tracks = [];
 
 // The individual matching segments for each track.
 let segments = null;
@@ -21,7 +22,8 @@ var alignment = null;
 // Whether we have a single course where all the tracks line
 // up, either because it was created that way or because
 // we merged the matching segments.
-let all_match = null;
+// Using var so it's accessible via window.all_match for testing.
+var all_match = null;
 
 // Display mode: 'full' shows entire tracks, 'overlapping' shows only overlapping regions.
 let displayMode = 'full';
