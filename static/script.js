@@ -308,7 +308,7 @@ function addSavedTrackListener() {
         data.push(track);
         dataToStorageId.push(storageId);
         dataUpdated();
-        populateSavedTracks();
+        await populateSavedTracks();
       }
     } catch (err) {
       console.error("Failed to load track from IndexedDB:", err);

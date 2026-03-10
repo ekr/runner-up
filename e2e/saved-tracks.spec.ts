@@ -3,11 +3,15 @@ import { selectors } from './helpers/selectors';
 import { clearLocalStorageNow, seedLocalStorageNow, getStoredTracks } from './helpers/localStorage';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 const track1Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track1.gpx'), 'utf-8');
 const track2Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track2.gpx'), 'utf-8');
 // hairpin-fast starts ~55km away from track1/track2 (Sunnyvale vs SF)
 const hairpinFastData = fs.readFileSync(path.join(__dirname, 'fixtures', 'hairpin-fast.gpx'), 'utf-8');
+
+// Compute content hashes (IDs) for tracks - IndexedDB returns in key order, not insertion order
+const track1Hash = crypto.createHash('sha256').update(track1Data).digest('hex');
 
 test.describe('Saved Tracks Dropdown', () => {
   test.beforeEach(async ({ page }) => {
@@ -198,8 +202,8 @@ test.describe('Saved Tracks Dropdown', () => {
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
 
-    // Load track1 (first track that starts in SF)
-    await dropdown.selectOption({ index: 1 });
+    // Load track1 by its hash value (IndexedDB returns in key order, not insertion order)
+    await dropdown.selectOption({ value: track1Hash });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Now dropdown should have 2 remaining tracks, sorted by proximity:
