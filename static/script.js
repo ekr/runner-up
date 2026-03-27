@@ -55,16 +55,13 @@ function dataUpdated() {
     alignment = null;
   }
 
-  const trim_tracks = document.querySelector("#trim-tracks");
   const display_mode = document.querySelector("#display-mode");
 
   if (!alignment || !alignment.overlappingRegions) {
     console.log("No matching segments");
-    if (trim_tracks) trim_tracks.style.display = "none";
     if (display_mode) display_mode.style.display = "none";
   } else if (alignment.hasMultipleSegments) {
     console.log("More than one segment");
-    if (trim_tracks) trim_tracks.style.display = "flex";
     if (display_mode) {
       display_mode.style.display = "flex";
       const summary = document.querySelector("#alignment-summary");
@@ -74,7 +71,6 @@ function dataUpdated() {
     }
   } else {
     console.log("All segments match");
-    if (trim_tracks) trim_tracks.style.display = "none";
     if (display_mode) display_mode.style.display = "none";
   }
 
@@ -92,12 +88,7 @@ function displayTracks() {
   if (!segments) {
     all_match = false;
   } else if (segments.length > 1) {
-    const trim_tracks = document.querySelector("#trim-tracks-checkbox");
-    if (trim_tracks && trim_tracks.checked) {
-      tracks = consolidateSegments(tracks, segments);
-      normalizeTracks(tracks);
-      all_match = true;
-    } else if (displayMode === 'overlapping' && alignment && tracks.length === 2) {
+    if (displayMode === 'overlapping' && alignment && tracks.length === 2) {
       // Use new alignment-based harmonization for overlapping regions only
       const harmonized = createHarmonizedTracks(tracks[0], tracks[1], alignment, true);
       tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];

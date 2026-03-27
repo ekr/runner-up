@@ -44,9 +44,6 @@ test.describe('Alignment with Different Sampling Rates (DTW)', () => {
     // Display mode selector should be hidden (only shows for multiple segments)
     await expect(page.locator('#display-mode')).toBeHidden();
 
-    // Trim tracks should also be hidden
-    await expect(page.locator('#trim-tracks')).toBeHidden();
-
     // Check that both map markers are visible
     await expect(page.locator(selectors.mapMarker)).toHaveCount(2, { timeout: 5000 });
   });

@@ -25,10 +25,6 @@ export const selectors = {
   graphFigure: '#graph figure',
   compareByMenu: '#compare-by-menu',
 
-  // Trim tracks
-  trimTracksCheckbox: '#trim-tracks-checkbox',
-  trimTracksContainer: '#trim-tracks',
-
   // Display mode (for alignment)
   displayModeContainer: '#display-mode',
   displayModeSelect: '#display-mode-select',
