@@ -7,21 +7,12 @@
     display: flex;
 }
 
-#trim-tracks {
-    display: none;
-    align-items: center;
-    gap: 0.5em;
-    border: 1px dashed lightgray;
-    padding: 0.5em;
-}
-
 #display-mode {
     display: none;
     align-items: center;
     gap: 0.5em;
     border: 1px solid #ccc;
     padding: 0.5em;
-    margin-left: 1em;
     background-color: #f9f9f9;
     border-radius: 4px;
 }
