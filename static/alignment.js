@@ -316,21 +316,22 @@ function createHarmonizedTracks(track1, track2, alignment, overlappingOnly = fal
 function extractAndHarmonizeRegions(track, regions, trackIndex) {
   const result = [];
   let cumulativeHarmonizedDistance = 0;
-  let lastTime = 0;
+  let lastTime = null;
+  let timeOffset = 0;
 
   for (const region of regions) {
     const range = trackIndex === 0 ? region.track1Range : region.track2Range;
     const originalDistance = trackIndex === 0 ? region.track1Distance : region.track2Distance;
     const scaleFactor = originalDistance > 0 ? region.harmonizedDistance / originalDistance : 1;
 
-    const segmentStart = track[range[0]];
-    const segmentStartDistance = segmentStart.distance;
+    const segmentStartDistance = track[range[0]].distance;
 
-    // Add gap between segments if not first
-    if (result.length > 0) {
-      // Use time gap from the track as a guide
-      const timeGap = Math.max(1, track[range[0]].time - lastTime);
-      lastTime = track[range[0]].time;
+    // Accumulate time spent in non-matching gaps between segments.
+    // Use range[0]-1 (the last non-matching point) rather than range[0]
+    // to preserve one natural inter-point interval at the boundary.
+    if (lastTime !== null) {
+      const gap = track[range[0] - 1].time - lastTime;
+      timeOffset += gap;
     }
 
     for (let i = range[0]; i <= range[1]; i++) {
@@ -340,14 +341,14 @@ function extractAndHarmonizeRegions(track, regions, trackIndex) {
 
       result.push({
         ...point,
+        time: point.time - timeOffset,
         distance: cumulativeHarmonizedDistance + scaledDistance,
         normalizedDistance: cumulativeHarmonizedDistance + scaledDistance,
         originalDistance: point.distance
       });
-
-      lastTime = point.time;
     }
 
+    lastTime = track[range[1]].time;
     cumulativeHarmonizedDistance += region.harmonizedDistance;
   }
 
