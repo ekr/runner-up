@@ -46,7 +46,7 @@ function LeafletMap() {
     }
   }
 
-  function createLegend(tracks) {
+  function createLegend(tracks, storageIds) {
     const legendContainer = document.getElementById("legend-container");
     clearChildren(legendContainer);
     for (let i in tracks) {
@@ -70,6 +70,25 @@ function LeafletMap() {
           removeTrack(trackId, false);
         }
       });
+
+      const downloadBtn = clone.querySelector(".download-button");
+      const storageId = storageIds && storageIds[i];
+      if (storageId) {
+        downloadBtn.addEventListener("click", async () => {
+          const entry = await getGPXById(storageId);
+          if (!entry) return;
+          const blob = new Blob([entry.data], { type: "application/gpx+xml" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          const dateStr = getStartDate(track).replace(/[/:]/g, "-").replace(/\s+/g, "_");
+          a.download = `${dateStr}.gpx`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      } else {
+        downloadBtn.style.display = "none";
+      }
 
       legendContainer.appendChild(clone);
     }
