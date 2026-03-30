@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { selectors } from './helpers/selectors';
-import { clearLocalStorageNow, seedLocalStorageNow } from './helpers/localStorage';
+import { setupApiMock } from './helpers/apiMock';
+import { clearLocalStorageNow } from './helpers/localStorage';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -10,10 +11,12 @@ test.describe('Download GPX', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
-    await page.reload();
   });
 
   test('should show download button for uploaded track', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
@@ -24,7 +27,8 @@ test.describe('Download GPX', () => {
   });
 
   test('should show download button for track loaded from dropdown', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ data: track1Data }]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -37,6 +41,9 @@ test.describe('Download GPX', () => {
   });
 
   test('should download GPX file with correct content', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
@@ -55,10 +62,10 @@ test.describe('Download GPX', () => {
   });
 
   test('should show download button for each track when two are loaded', async ({ page }) => {
-    const fileInput = page.locator(selectors.fileInput);
+    const mock = await setupApiMock(page);
     const track2Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track2.gpx'), 'utf-8');
 
-    await seedLocalStorageNow(page, [{ data: track1Data }, { data: track2Data }]);
+    await mock.seedTracks([track1Data, track2Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);

@@ -1,136 +1,108 @@
-// IndexedDB storage for GPX files.
-// Uses content hash (SHA-256) as primary key for deduplication.
+// Server-side storage for GPX files via Cloudflare Workers + R2.
+// Track IDs are HMAC-based capability URLs (computed server-side).
 
-const DB_NAME = 'runnerUpDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'gpxTracks';
+const API_BASE = 'https://api.runnerup.win';
 
-let dbPromise = null;
-
-// Open (or create) the IndexedDB database.
-function openDB() {
-  if (dbPromise) return dbPromise;
-
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => {
-      console.error('Failed to open IndexedDB:', request.error);
-      reject(request.error);
-    };
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        // Store GPX tracks with 'id' as primary key (content hash).
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-  });
-
-  return dbPromise;
+// Get or provision a user ID.
+function getUserId() {
+  return localStorage.getItem('runnerup:userId');
 }
 
-// Save a GPX file to IndexedDB. Returns the storage ID (content hash).
+function setUserId(id) {
+  localStorage.setItem('runnerup:userId', id);
+}
+
+// Make an API request with the user ID header.
+async function apiFetch(path, options = {}) {
+  const headers = { ...options.headers };
+  const userId = getUserId();
+  if (userId) {
+    headers['X-User-Id'] = userId;
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  // If the server provisioned a new user ID, persist it.
+  const newUserId = response.headers.get('X-User-Id');
+  if (newUserId) {
+    setUserId(newUserId);
+  }
+
+  return response;
+}
+
+// Save a GPX file to server storage. Returns the storage ID (HMAC-based).
 async function saveGPXToStorage(gpxText) {
   try {
-    const db = await openDB();
-
-    // Use SHA-256 content hash as ID - automatically handles duplicates.
-    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(gpxText));
-    const id = [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
-
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-
-      // Check if this content already exists.
-      const getRequest = store.get(id);
-
-      getRequest.onsuccess = () => {
-        if (getRequest.result) {
-          // Already exists, return the existing ID.
-          resolve(id);
-          return;
-        }
-
-        // Create new entry.
-        const putRequest = store.put({ id, data: gpxText });
-        putRequest.onsuccess = () => resolve(id);
-        putRequest.onerror = () => reject(putRequest.error);
-      };
-
-      getRequest.onerror = () => reject(getRequest.error);
-
-      tx.onerror = () => reject(tx.error);
+    const response = await apiFetch('/tracks', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/xml' },
+      body: gpxText,
     });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.id;
   } catch (e) {
-    console.error('Failed to save GPX to IndexedDB:', e);
+    console.error('Failed to save GPX to server:', e);
     alert('Failed to save track to storage: ' + e.message);
     return null;
   }
 }
 
-// Delete a GPX track from IndexedDB by its storage ID.
+// Delete a GPX track from server storage by its storage ID.
 async function deleteGPXFromStorage(storageId) {
   if (!storageId) return;
 
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.delete(storageId);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      tx.onerror = () => reject(tx.error);
+    const response = await apiFetch(`/tracks/${storageId}`, {
+      method: 'DELETE',
     });
+
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Server error: ${response.status}`);
+    }
   } catch (e) {
-    console.error('Failed to delete GPX from IndexedDB:', e);
+    console.error('Failed to delete GPX from server:', e);
   }
 }
 
-// Get all stored GPX tracks from IndexedDB.
+// Get all stored GPX track metadata for the current user.
+// Returns [{id, date, startLat, startLon}] — no GPX data.
 async function getAllStoredGPX() {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.getAll();
+    const response = await apiFetch('/tracks');
 
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-      tx.onerror = () => reject(tx.error);
-    });
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    return await response.json();
   } catch (e) {
-    console.error('Failed to read from IndexedDB:', e);
+    console.error('Failed to read tracks from server:', e);
     return [];
   }
 }
 
 // Get a single GPX track by ID.
+// Returns {id, data} where data is the GPX XML text.
 async function getGPXById(storageId) {
   if (!storageId) return null;
 
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.get(storageId);
+    const response = await apiFetch(`/tracks/${storageId}`);
 
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-      tx.onerror = () => reject(tx.error);
-    });
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    return await response.json();
   } catch (e) {
-    console.error('Failed to get GPX from IndexedDB:', e);
+    console.error('Failed to get GPX from server:', e);
     return null;
   }
 }
@@ -138,17 +110,42 @@ async function getGPXById(storageId) {
 // Clear all stored GPX tracks (for testing).
 async function clearAllStoredGPX() {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.clear();
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      tx.onerror = () => reject(tx.error);
+    const response = await apiFetch('/tracks', {
+      method: 'DELETE',
     });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
   } catch (e) {
-    console.error('Failed to clear IndexedDB:', e);
+    console.error('Failed to clear tracks on server:', e);
   }
+}
+
+// Load shared tracks by calling the share API.
+// Returns an array of {id, data} objects (1 or 2 tracks).
+async function loadSharedTracks(trackIds) {
+  const path = '/share/' + trackIds.join('/');
+  try {
+    const response = await fetch(`${API_BASE}${path}`);
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    // Single track returns {id, data}, two tracks returns {tracks: [{id, data}, ...]}.
+    if (result.tracks) {
+      return result.tracks;
+    }
+    return [result];
+  } catch (e) {
+    console.error('Failed to load shared tracks:', e);
+    return null;
+  }
+}
+
+// Construct a share URL from track IDs.
+function getShareUrl(trackIds) {
+  return `${window.location.origin}/#/share/${trackIds.join('/')}`;
 }

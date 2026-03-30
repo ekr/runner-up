@@ -1,0 +1,7 @@
+name = "runnerup-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[r2_buckets]]
+binding = "GPX_BUCKET"
+bucket_name = "runnerup-gpx"
