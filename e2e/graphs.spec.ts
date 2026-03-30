@@ -219,6 +219,61 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(markerPositions.every(hasTransform => hasTransform)).toBe(true);
   });
 
+  test('overlapping mode removes time gaps from non-matching segments', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Load no-loop track first (track[0]), then with-loop track (track[1])
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    // Select 'Overlapping' display mode
+    await page.selectOption('#display-mode-select', 'overlapping');
+    await page.waitForTimeout(300);
+
+    // Check that the looped track doesn't have a large time gap
+    // The loop in the fixture takes ~70s. Without the fix, there's a 70s gap
+    // between the two overlapping segments. With the fix, the gap is removed.
+    const timeGapInfo = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      if (!tracks || tracks.length < 2) return null;
+
+      // Find the maximum time gap between consecutive points in each track
+      const maxGap = (track: any[]) => {
+        let max = 0;
+        for (let i = 1; i < track.length; i++) {
+          const gap = track[i].time - track[i - 1].time;
+          if (gap > max) max = gap;
+        }
+        return max;
+      };
+
+      return {
+        track1MaxGap: maxGap(tracks[0]),
+        track2MaxGap: maxGap(tracks[1]),
+        track1LastTime: tracks[0][tracks[0].length - 1].time,
+        track2LastTime: tracks[1][tracks[1].length - 1].time,
+      };
+    });
+
+    expect(timeGapInfo).not.toBeNull();
+
+    // The fixture has 10s between consecutive points. After removing the
+    // non-matching loop segment, the max gap should be ~10s, not ~70s.
+    // Use 15s as threshold to allow some tolerance.
+    expect(timeGapInfo!.track2MaxGap).toBeLessThan(15);
+
+    // The looped track's final time should be close to the no-loop track's
+    // final time (both cover similar matching distance at similar pace),
+    // not inflated by 70s of loop time.
+    const timeDiff = Math.abs(timeGapInfo!.track1LastTime - timeGapInfo!.track2LastTime);
+    expect(timeDiff).toBeLessThan(30);
+  });
+
   test('harmonized tracks have continuous displayDistance across segments', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
