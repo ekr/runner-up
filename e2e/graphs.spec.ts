@@ -63,10 +63,11 @@ test.describe('displayTime in non-overlapping segments', () => {
       const tracks = (window as any).tracks;
       if (!tracks || tracks.length < 2) return null;
 
-      // Check that times are monotonically increasing (no gaps from segment stitching)
+      // Check that times are monotonically non-decreasing (no reversals from segment stitching).
+      // Equal timestamps at segment boundaries are expected when gap time is removed.
       const checkContinuous = (track: any[]) => {
         for (let i = 1; i < track.length; i++) {
-          if (track[i].time <= track[i - 1].time) {
+          if (track[i].time < track[i - 1].time) {
             return false;
           }
         }
