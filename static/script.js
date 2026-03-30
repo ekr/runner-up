@@ -120,7 +120,7 @@ function displayTracks() {
 
     lmap.drawTrack(track);
   }
-  lmap.createLegend(tracks);
+  lmap.createLegend(tracks, dataToStorageId);
   initializeSlider();
   updateMarkers();
 }
