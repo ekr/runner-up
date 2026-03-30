@@ -326,9 +326,11 @@ function extractAndHarmonizeRegions(track, regions, trackIndex) {
 
     const segmentStartDistance = track[range[0]].distance;
 
-    // Accumulate time spent in non-matching gaps between segments
+    // Accumulate time spent in non-matching gaps between segments.
+    // Use range[0]-1 (the last non-matching point) rather than range[0]
+    // to preserve one natural inter-point interval at the boundary.
     if (lastTime !== null) {
-      const gap = track[range[0]].time - lastTime;
+      const gap = track[range[0] - 1].time - lastTime;
       timeOffset += gap;
     }
 
