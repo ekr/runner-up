@@ -1,44 +1,39 @@
 import { test, expect } from '@playwright/test';
 import { selectors } from './helpers/selectors';
-import { clearLocalStorageNow, seedLocalStorageNow, getStoredTracks } from './helpers/localStorage';
+import { setupApiMock } from './helpers/apiMock';
+import { clearLocalStorageNow } from './helpers/localStorage';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 
 const track1Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track1.gpx'), 'utf-8');
 const track2Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track2.gpx'), 'utf-8');
 // hairpin-fast starts ~55km away from track1/track2 (Sunnyvale vs SF)
 const hairpinFastData = fs.readFileSync(path.join(__dirname, 'fixtures', 'hairpin-fast.gpx'), 'utf-8');
 
-// Compute content hashes (IDs) for tracks - IndexedDB returns in key order, not insertion order
-const track1Hash = crypto.createHash('sha256').update(track1Data).digest('hex');
-
 test.describe('Saved Tracks Dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
-    await page.reload();
   });
 
-  test('should save uploaded track to localStorage with unique ID', async ({ page }) => {
-    const fileInput = page.locator(selectors.fileInput);
+  test('should save uploaded track to server with unique ID', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
 
+    const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
-    // Check localStorage has the track with an ID
-    const stored = await getStoredTracks(page);
-    expect(stored).toHaveLength(1);
+    // Check mock server has the track with an ID
+    expect(mock.getTrackCount()).toBe(1);
+    const stored = mock.getStoredTracks();
     expect(stored[0].id).toBeDefined();
     expect(stored[0].data).toContain('<gpx');
   });
 
   test('should populate dropdown with saved tracks', async ({ page }) => {
-    // Seed localStorage with tracks
-    await seedLocalStorageNow(page, [
-      { data: track1Data },
-      { data: track2Data },
-    ]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data, track2Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -52,7 +47,8 @@ test.describe('Saved Tracks Dropdown', () => {
   });
 
   test('should load correct track when selected from dropdown', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ data: track1Data }]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -70,10 +66,8 @@ test.describe('Saved Tracks Dropdown', () => {
   });
 
   test('should remove loaded track from dropdown', async ({ page }) => {
-    await seedLocalStorageNow(page, [
-      { data: track1Data },
-      { data: track2Data },
-    ]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data, track2Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -91,7 +85,8 @@ test.describe('Saved Tracks Dropdown', () => {
   });
 
   test('should remove track from display on delete click', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ data: track1Data }]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -108,16 +103,16 @@ test.describe('Saved Tracks Dropdown', () => {
     // Track should be removed from map
     await expect(page.locator(selectors.legendEntry)).toHaveCount(0);
 
-    // Track should still be in localStorage
-    const stored = await getStoredTracks(page);
-    expect(stored).toHaveLength(1);
+    // Track should still be on the server
+    expect(mock.getTrackCount()).toBe(1);
 
     // Track should reappear in dropdown
     await expect(dropdown.locator('option')).toHaveCount(2);
   });
 
   test('should delete track permanently on Shift+click', async ({ page }) => {
-    await seedLocalStorageNow(page, [{ data: track1Data }]);
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
@@ -136,37 +131,36 @@ test.describe('Saved Tracks Dropdown', () => {
     // Track should be removed from map
     await expect(page.locator(selectors.legendEntry)).toHaveCount(0);
 
-    // Track should be removed from localStorage
-    const stored = await getStoredTracks(page);
-    expect(stored).toHaveLength(0);
+    // Track should be removed from server
+    expect(mock.getTrackCount()).toBe(0);
 
     // Track should not reappear in dropdown
     await expect(dropdown.locator('option')).toHaveCount(1); // Only placeholder
   });
 
-  test('should persist tracks across page reload', async ({ page }) => {
+  test('should auto-load track from URL hash after reload', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
     const fileInput = page.locator(selectors.fileInput);
 
     // Upload a track
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
-    // Reload page
+    // URL hash should now contain the track ID
+    const hashBefore = await page.evaluate(() => window.location.hash);
+    expect(hashBefore).toContain(mock.getTrackId(track1Data));
+
+    // Reload page — track should auto-load from URL hash
     await page.reload();
-
-    // Map should be empty (no auto-load)
-    await expect(page.locator(selectors.legendEntry)).toHaveCount(0);
-
-    // Dropdown should have the track
-    const dropdown = page.locator(selectors.savedTracksDropdown);
-    await expect(dropdown.locator('option')).toHaveCount(2);
-
-    // Can load track from dropdown (now shows date+time instead of filename)
-    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
   });
 
   test('should not store bitwise duplicate tracks', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
     const fileInput = page.locator(selectors.fileInput);
 
     // Upload track1
@@ -183,27 +177,24 @@ test.describe('Saved Tracks Dropdown', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
-    // Should only have one entry in localStorage (not duplicated)
-    const stored = await getStoredTracks(page);
-    expect(stored).toHaveLength(1);
+    // Should only have one entry on server (not duplicated)
+    expect(mock.getTrackCount()).toBe(1);
   });
 
   test('should sort saved tracks by proximity to displayed track', async ({ page }) => {
+    const mock = await setupApiMock(page);
     // Seed with 3 tracks:
     // - track1: starts in SF (37.7749, -122.4194)
     // - track2: starts in SF (same location as track1)
     // - hairpin-fast: starts in Sunnyvale (~55km away)
-    await seedLocalStorageNow(page, [
-      { data: track1Data },
-      { data: track2Data },
-      { data: hairpinFastData },
-    ]);
+    await mock.seedTracks([track1Data, track2Data, hairpinFastData]);
     await page.reload();
 
     const dropdown = page.locator(selectors.savedTracksDropdown);
 
-    // Load track1 by its hash value (IndexedDB returns in key order, not insertion order)
-    await dropdown.selectOption({ value: track1Hash });
+    // Load track1 by its ID
+    const track1Id = mock.getTrackId(track1Data);
+    await dropdown.selectOption({ value: track1Id });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     // Now dropdown should have 2 remaining tracks, sorted by proximity:

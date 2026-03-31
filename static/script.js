@@ -4,7 +4,7 @@ let maxTime = -Infinity;
 // The raw GPX data we loaded in.
 let data = [];
 
-// Map from data index to IndexedDB storage ID.
+// Map from data index to server storage ID.
 let dataToStorageId = [];
 
 // The tracks to actually plot transformed into ready-to-plot
@@ -82,6 +82,9 @@ function dataUpdated() {
   // been loaded.
   document.querySelector("#add-track").style.display =
     data.length >= 2 ? "none" : "flex";
+
+  // Update the URL hash with current track IDs for sharing.
+  updateUrlHash();
 }
 
 function displayTracks() {
@@ -179,31 +182,12 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Save a GPX file to IndexedDB. Returns the storage ID (content hash).
-// Uses saveGPXToStorage from storage.js.
-
-// Delete a GPX track from IndexedDB by its storage ID.
-// Uses deleteGPXFromStorage from storage.js.
-
-// Function to fetch and display a GPX track
-function fetchGPXTrack(url) {
-  fetch(url)
-    .then((response) => response.text())
-    .then((gpxData) => {
-      const track = parseGPX(gpxData);
-      data.push(track);
-      dataToStorageId.push(null); // Not from IndexedDB
-      dataUpdated();
-    })
-    .catch((error) => console.error("Error loading GPX:", error));
-}
-
 // Get the set of storage IDs currently being displayed.
 function getDisplayedStorageIds() {
   return new Set(dataToStorageId.filter((id) => id !== null));
 }
 
-// Populate the saved tracks dropdown from IndexedDB.
+// Populate the saved tracks dropdown from server storage.
 // Excludes tracks that are already being displayed.
 // If a track is displayed, sorts remaining tracks by proximity to displayed track's start.
 async function populateSavedTracks() {
@@ -223,42 +207,40 @@ async function populateSavedTracks() {
     referencePoint = { lat: data[0][0].lat, lon: data[0][0].lon };
   }
 
-  // Add IndexedDB tracks that aren't already displayed.
+  // Add server-stored tracks that aren't already displayed.
   try {
     const stored = await getAllStoredGPX();
 
-    // Build array of track entries with parsed data for sorting.
+    // Build array of track entries with metadata for sorting.
     const trackEntries = [];
     for (const entry of stored) {
       // Skip if already displayed.
       if (displayedIds.has(entry.id)) {
         continue;
       }
-      let track = null;
       let displayText = "Unknown date";
-      try {
-        track = parseGPX(entry.data);
-        displayText = getStartDate(track);
-      } catch (parseErr) {
-        // Keep null track, will sort to end
+      if (entry.date) {
+        const d = new Date(entry.date);
+        const date = d.toDateString();
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        displayText = `${date} ${time}`;
       }
-      trackEntries.push({ entry, track, displayText });
+      trackEntries.push({ entry, displayText });
     }
 
     // Sort by proximity to displayed track's start point (closest first).
     if (referencePoint) {
       trackEntries.sort((a, b) => {
-        // Tracks that failed to parse go to end.
-        if (!a.track || a.track.length === 0) return 1;
-        if (!b.track || b.track.length === 0) return -1;
+        if (a.entry.startLat == null) return 1;
+        if (b.entry.startLat == null) return -1;
 
         const distA = getDistanceFromLatLonInKm(
           referencePoint.lat, referencePoint.lon,
-          a.track[0].lat, a.track[0].lon
+          a.entry.startLat, a.entry.startLon
         );
         const distB = getDistanceFromLatLonInKm(
           referencePoint.lat, referencePoint.lon,
-          b.track[0].lat, b.track[0].lon
+          b.entry.startLat, b.entry.startLon
         );
         return distA - distB;
       });
@@ -272,7 +254,7 @@ async function populateSavedTracks() {
       select.appendChild(option);
     }
   } catch (e) {
-    console.error("Failed to read IndexedDB tracks:", e);
+    console.error("Failed to read stored tracks:", e);
   }
 }
 
@@ -304,13 +286,13 @@ function addSavedTrackListener() {
         await populateSavedTracks();
       }
     } catch (err) {
-      console.error("Failed to load track from IndexedDB:", err);
+      console.error("Failed to load track from server:", err);
     }
   });
 }
 
 // Remove a track from display by its data index.
-// If permanent is true, also delete from IndexedDB.
+// If permanent is true, also delete from server storage.
 function removeTrack(trackIndex, permanent) {
   const storageId = dataToStorageId[trackIndex];
 
@@ -332,17 +314,10 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((response) => response.text())
     .then((v) => (document.querySelector("#deploy-date").textContent = v));
 
-  // Check to see if we are in test mode.
+  // Check if URL contains shared track IDs.
   const url = new URL(window.location);
-  console.log(url);
-  if (url.hash == "#test") {
-    console.log("Test mode");
-    fetchGPXTrack("track1.gpx");
-    fetchGPXTrack("track2.gpx");
-  } else if (url.hash == "#test2") {
-    console.log("Test2 mode");
-    fetchGPXTrack("priest-kennedy.gpx");
-    fetchGPXTrack("priest-sombroso.gpx");
+  if (url.hash.length > 1) {
+    loadTracksFromHash(url.hash);
   }
 
   addFileListener("track");
@@ -361,4 +336,39 @@ function addDisplayModeListener() {
       displayTracks();
     });
   }
+}
+
+// Update the URL hash with current track IDs so the URL is always shareable.
+function updateUrlHash() {
+  const trackIds = dataToStorageId.filter((id) => id !== null);
+  if (trackIds.length > 0) {
+    window.history.replaceState(null, '', '#' + trackIds.join('/'));
+  } else {
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+}
+
+// Load tracks from the URL hash (e.g., #trackId1/trackId2).
+async function loadTracksFromHash(hash) {
+  const parts = hash.slice(1).split('/').filter(Boolean);
+  if (parts.length === 0 || parts.length > 2) return;
+
+  for (const trackId of parts) {
+    try {
+      const entry = await getGPXById(trackId);
+      if (!entry) {
+        console.error("Track not found:", trackId);
+        continue;
+      }
+      const track = parseGPX(entry.data);
+      data.push(track);
+      dataToStorageId.push(entry.id);
+    } catch (err) {
+      console.error("Failed to load shared track:", trackId, err);
+    }
+  }
+  if (data.length > 0) {
+    dataUpdated();
+  }
+  populateSavedTracks();
 }

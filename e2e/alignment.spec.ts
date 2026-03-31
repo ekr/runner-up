@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { selectors } from './helpers/selectors';
 import { clearLocalStorageNow } from './helpers/localStorage';
+import { setupApiMock } from './helpers/apiMock';
 import * as path from 'path';
 
 // Use the existing fixtures that are known to work
@@ -10,6 +11,7 @@ test.describe('Track Alignment', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
+    await setupApiMock(page);
     await page.reload();
   });
 
@@ -55,6 +57,7 @@ test.describe('Out-and-Back with Different Turnaround Points', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
+    await setupApiMock(page);
     await page.reload();
   });
 
@@ -94,6 +97,7 @@ test.describe('Track with Extra Loop', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
+    await setupApiMock(page);
     await page.reload();
   });
 
@@ -137,6 +141,7 @@ test.describe('Hairpin Out-and-Back at Different Paces', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await clearLocalStorageNow(page);
+    await setupApiMock(page);
     await page.reload();
   });
 
