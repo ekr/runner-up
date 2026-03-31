@@ -7,6 +7,17 @@ interface TrackMeta {
   startLon: number | null;
 }
 
+// Limits to stay within R2 free tier.
+export const MAX_TRACKS_PER_USER = 100;
+export const MAX_TOTAL_STORAGE_BYTES = 9 * 1024 * 1024 * 1024; // 9 GB (buffer below 10 GB)
+export const MAX_MONTHLY_WRITES = 9_000_000; // 9M (buffer below 10M)
+
+interface GlobalStats {
+  totalBytes: number;
+  writeCount: number;
+  month: string; // "YYYY-MM" — resets each month
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -63,6 +74,25 @@ async function writeIndex(bucket: R2Bucket, userId: string, index: TrackMeta[]):
   await bucket.put(`index/${userId}`, JSON.stringify(index));
 }
 
+// Read global usage stats from R2.
+async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const obj = await bucket.get('_stats');
+  if (obj) {
+    const stats: GlobalStats = JSON.parse(await obj.text());
+    // Reset if month rolled over.
+    if (stats.month === currentMonth) {
+      return stats;
+    }
+  }
+  return { totalBytes: 0, writeCount: 0, month: currentMonth };
+}
+
+// Write global usage stats to R2.
+async function writeStats(bucket: R2Bucket, stats: GlobalStats): Promise<void> {
+  await bucket.put('_stats', JSON.stringify(stats));
+}
+
 export async function handleTrackRoutes(
   request: Request,
   env: Env,
@@ -84,8 +114,28 @@ export async function handleTrackRoutes(
       return jsonResponse({ id: trackId }, 200);
     }
 
+    // Per-user limit.
+    if (index.length >= MAX_TRACKS_PER_USER) {
+      return jsonResponse({ error: 'Track limit reached' }, 429);
+    }
+
+    // Global limits (storage + monthly writes).
+    const stats = await readStats(env.GPX_BUCKET);
+    const bodyBytes = new TextEncoder().encode(gpxText).length;
+    if (stats.totalBytes + bodyBytes > MAX_TOTAL_STORAGE_BYTES) {
+      return jsonResponse({ error: 'Storage limit reached' }, 507);
+    }
+    if (stats.writeCount >= MAX_MONTHLY_WRITES) {
+      return jsonResponse({ error: 'Monthly write limit reached' }, 429);
+    }
+
     // Store the GPX data.
     await env.GPX_BUCKET.put(`gpx/${trackId}`, gpxText);
+
+    // Update global stats.
+    stats.totalBytes += bodyBytes;
+    stats.writeCount += 1;
+    await writeStats(env.GPX_BUCKET, stats);
 
     // Extract metadata and update index.
     const meta = extractGPXMetadata(gpxText);
@@ -134,8 +184,18 @@ export async function handleTrackRoutes(
       return jsonResponse({ error: 'Not found' }, 404);
     }
 
+    // Subtract deleted object size from global stats.
+    const delObj = await env.GPX_BUCKET.get(`gpx/${trackId}`);
+    const delSize = delObj ? new TextEncoder().encode(await delObj.text()).length : 0;
+
     await env.GPX_BUCKET.delete(`gpx/${trackId}`);
     await writeIndex(env.GPX_BUCKET, userId, newIndex);
+
+    if (delSize > 0) {
+      const stats = await readStats(env.GPX_BUCKET);
+      stats.totalBytes = Math.max(0, stats.totalBytes - delSize);
+      await writeStats(env.GPX_BUCKET, stats);
+    }
 
     return new Response(null, { status: 204 });
   }
@@ -144,11 +204,26 @@ export async function handleTrackRoutes(
   if (request.method === 'DELETE' && path === '/tracks') {
     const index = await readIndex(env.GPX_BUCKET, userId);
 
+    // Sum sizes for stats update.
+    let totalDeleted = 0;
+    for (const entry of index) {
+      const obj = await env.GPX_BUCKET.get(`gpx/${entry.id}`);
+      if (obj) {
+        totalDeleted += new TextEncoder().encode(await obj.text()).length;
+      }
+    }
+
     // Delete all GPX objects.
     await Promise.all(index.map((entry) => env.GPX_BUCKET.delete(`gpx/${entry.id}`)));
 
     // Delete the index.
     await env.GPX_BUCKET.delete(`index/${userId}`);
+
+    if (totalDeleted > 0) {
+      const stats = await readStats(env.GPX_BUCKET);
+      stats.totalBytes = Math.max(0, stats.totalBytes - totalDeleted);
+      await writeStats(env.GPX_BUCKET, stats);
+    }
 
     return new Response(null, { status: 204 });
   }
