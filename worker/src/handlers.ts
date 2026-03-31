@@ -5,6 +5,7 @@ interface TrackMeta {
   date: string | null;
   startLat: number | null;
   startLon: number | null;
+  sizeBytes: number;
 }
 
 // Limits to stay within R2 free tier.
@@ -142,7 +143,7 @@ export async function handleTrackRoutes(
 
     // Extract metadata and update index.
     const meta = extractGPXMetadata(gpxText);
-    index.push({ id: trackId, ...meta });
+    index.push({ id: trackId, ...meta, sizeBytes: bodyBytes });
     await writeIndex(env.GPX_BUCKET, userId, index);
 
     return jsonResponse({ id: trackId }, 201);
@@ -173,29 +174,26 @@ export async function handleTrackRoutes(
   }
 
   // DELETE /tracks/{id} — delete a single track.
-  if (request.method === 'DELETE' && path.startsWith('/tracks/') && path !== '/tracks/') {
+  if (request.method === 'DELETE' && path.startsWith('/tracks/') && path.length > '/tracks/'.length) {
     const trackId = path.slice('/tracks/'.length);
     if (!VALID_TRACK_ID.test(trackId)) {
       return jsonResponse({ error: 'Invalid track ID' }, 400);
     }
 
     const index = await readIndex(env.GPX_BUCKET, userId);
-    const newIndex = index.filter((entry) => entry.id !== trackId);
+    const deleted = index.find((entry) => entry.id === trackId);
 
-    if (newIndex.length === index.length) {
+    if (!deleted) {
       return jsonResponse({ error: 'Not found' }, 404);
     }
 
-    // Subtract deleted object size from global stats.
-    const delHead = await env.GPX_BUCKET.head(`gpx/${trackId}`);
-    const delSize = delHead ? delHead.size : 0;
-
+    const newIndex = index.filter((entry) => entry.id !== trackId);
     await env.GPX_BUCKET.delete(`gpx/${trackId}`);
     await writeIndex(env.GPX_BUCKET, userId, newIndex);
 
-    if (delSize > 0) {
+    if (deleted.sizeBytes > 0) {
       const stats = await readStats(env.GPX_BUCKET);
-      stats.totalBytes = Math.max(0, stats.totalBytes - delSize);
+      stats.totalBytes = Math.max(0, stats.totalBytes - deleted.sizeBytes);
       await writeStats(env.GPX_BUCKET, stats);
     }
 
@@ -206,14 +204,7 @@ export async function handleTrackRoutes(
   if (request.method === 'DELETE' && path === '/tracks') {
     const index = await readIndex(env.GPX_BUCKET, userId);
 
-    // Sum sizes for stats update.
-    let totalDeleted = 0;
-    for (const entry of index) {
-      const head = await env.GPX_BUCKET.head(`gpx/${entry.id}`);
-      if (head) {
-        totalDeleted += head.size;
-      }
-    }
+    const totalDeleted = index.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
 
     // Delete all GPX objects.
     await Promise.all(index.map((entry) => env.GPX_BUCKET.delete(`gpx/${entry.id}`)));

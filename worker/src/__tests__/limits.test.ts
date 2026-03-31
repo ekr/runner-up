@@ -47,7 +47,7 @@ async function seedIndex(rawUserId: string, count: number): Promise<void> {
   const entries = [];
   for (let i = 0; i < count; i++) {
     const id = i.toString(16).padStart(32, '0');
-    entries.push({ id, date: null, startLat: null, startLon: null });
+    entries.push({ id, date: null, startLat: null, startLon: null, sizeBytes: 0 });
   }
   await env.GPX_BUCKET.put(`index/${hashedId}`, JSON.stringify(entries));
 }

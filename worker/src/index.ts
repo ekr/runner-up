@@ -68,9 +68,12 @@ export default {
       responseHeaders['X-User-Id'] = rawUserId;
     }
 
+    // Normalize trailing slash.
+    const normalizedPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path;
+
     try {
-      if (path === '/tracks' || path.startsWith('/tracks/')) {
-        const result = await handleTrackRoutes(request, env, userId, path);
+      if (normalizedPath === '/tracks' || normalizedPath.startsWith('/tracks/')) {
+        const result = await handleTrackRoutes(request, env, userId, normalizedPath);
         return addHeaders(result, responseHeaders);
       }
 
