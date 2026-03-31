@@ -15,6 +15,7 @@ const TOKEN_EXPIRY = '30d';
 // Username: lowercase alphanumeric + hyphens, 3-30 chars.
 const VALID_USERNAME = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 1024;
 
 interface UserRecord {
   username: string;
@@ -120,8 +121,11 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
   const { username, password, inviteCode } = body;
 
-  // Validate invite code.
-  if (!inviteCode || inviteCode !== env.INVITE_CODE) {
+  // Validate invite code (constant-time to prevent timing side-channel).
+  if (!inviteCode || !constantTimeEqual(
+    new TextEncoder().encode(inviteCode),
+    new TextEncoder().encode(env.INVITE_CODE),
+  )) {
     return jsonResponse({ error: 'Invalid invite code' }, 403);
   }
 
@@ -137,8 +141,14 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
   if (!password || password.length < MIN_PASSWORD_LENGTH) {
     return jsonResponse({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
   }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: `Password must be at most ${MAX_PASSWORD_LENGTH} characters` }, 400);
+  }
 
-  // Check if username already exists.
+  // Check if username already exists. Note: there is a small TOCTOU
+  // race window where two concurrent registrations for the same username
+  // could both pass this check. This is acceptable given invite-code
+  // gating limits the registration rate.
   const existing = await readUser(env.GPX_BUCKET, username);
   if (existing) {
     return jsonResponse({ error: 'Username already taken' }, 409);
@@ -174,6 +184,10 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 
   if (!username || !password) {
     return jsonResponse({ error: 'Username and password required' }, 400);
+  }
+
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: 'Invalid username or password' }, 401);
   }
 
   const user = await readUser(env.GPX_BUCKET, username.toLowerCase());

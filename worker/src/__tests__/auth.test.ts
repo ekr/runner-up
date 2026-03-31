@@ -87,6 +87,14 @@ describe('Authentication', () => {
       expect(body.error).toContain('Password must be at least');
     });
 
+    it('rejects password that is too long', async () => {
+      const longPassword = 'a'.repeat(1025);
+      const res = await register('alice', longPassword, INVITE_CODE);
+      expect(res.status).toBe(400);
+      const body = await res.json() as { error: string };
+      expect(body.error).toContain('Password must be at most');
+    });
+
     it('rejects invalid JSON body', async () => {
       const res = await SELF.fetch('https://api.runnerup.win/auth/register', {
         method: 'POST',
@@ -124,6 +132,11 @@ describe('Authentication', () => {
       expect(res.status).toBe(401);
       const body = await res.json() as { error: string };
       expect(body.error).toBe('Invalid username or password');
+    });
+
+    it('rejects oversized password without running PBKDF2', async () => {
+      const res = await login('bob', 'a'.repeat(1025));
+      expect(res.status).toBe(401);
     });
 
     it('rejects missing credentials', async () => {

@@ -88,8 +88,8 @@ export default {
 
       return jsonResponse({ error: 'Not found' }, 404, cors);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Internal server error';
-      return jsonResponse({ error: message }, 500, cors);
+      console.error('Unhandled error:', err);
+      return jsonResponse({ error: 'Internal server error' }, 500, cors);
     }
   },
 } satisfies ExportedHandler<Env>;
