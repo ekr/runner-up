@@ -1,6 +1,7 @@
 import { env, exports } from 'cloudflare:workers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MAX_TRACKS_PER_USER, MAX_TOTAL_STORAGE_BYTES, MAX_MONTHLY_WRITES } from '../handlers';
+import { createToken } from '../auth';
 
 const SELF = exports.default;
 
@@ -9,26 +10,25 @@ const GPX_TEMPLATE = (i: number) => `<?xml version="1.0"?>
 <trkpt lat="37.${i}" lon="-122.0"><time>2024-01-01T00:00:00Z</time></trkpt>
 </trkseg></trk></gpx>`;
 
-const RAW_USER_ID = '00000000-0000-4000-8000-000000000001';
+// The hashed userId that corresponds to the test user.
+// We generate a token with this userId and the worker verifies it.
+const TEST_USER_ID_HASHED = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 
-async function hashUserId(userId: string): Promise<string> {
-  const data = new TextEncoder().encode(userId);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// Auth token will be set in beforeEach after creating a token with the test AUTH_SECRET.
+let authToken: string;
 
-async function putTrack(gpxText: string, userId = RAW_USER_ID): Promise<Response> {
+async function putTrack(gpxText: string, token = authToken): Promise<Response> {
   return SELF.fetch('https://api.runnerup.win/tracks', {
     method: 'PUT',
-    headers: { 'X-User-Id': userId, 'Content-Type': 'text/xml' },
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'text/xml' },
     body: gpxText,
   });
 }
 
-async function deleteAllTracks(userId = RAW_USER_ID): Promise<Response> {
+async function deleteAllTracks(token = authToken): Promise<Response> {
   return SELF.fetch('https://api.runnerup.win/tracks', {
     method: 'DELETE',
-    headers: { 'X-User-Id': userId },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
 }
 
@@ -42,14 +42,13 @@ async function setStats(stats: { totalBytes: number; writeCount: number; month: 
   await env.GPX_BUCKET.put('_stats', JSON.stringify(stats));
 }
 
-async function seedIndex(rawUserId: string, count: number): Promise<void> {
-  const hashedId = await hashUserId(rawUserId);
+async function seedIndex(hashedUserId: string, count: number): Promise<void> {
   const entries = [];
   for (let i = 0; i < count; i++) {
     const id = i.toString(16).padStart(32, '0');
     entries.push({ id, date: null, startLat: null, startLon: null, sizeBytes: 0 });
   }
-  await env.GPX_BUCKET.put(`index/${hashedId}`, JSON.stringify(entries));
+  await env.GPX_BUCKET.put(`index/${hashedUserId}`, JSON.stringify(entries));
 }
 
 // Clean up R2 between tests.
@@ -63,11 +62,13 @@ async function clearBucket(): Promise<void> {
 describe('Rate limits', () => {
   beforeEach(async () => {
     await clearBucket();
+    // Create a valid auth token using the test AUTH_SECRET from wrangler.toml.
+    authToken = await createToken(TEST_USER_ID_HASHED, 'testuser', env.AUTH_SECRET);
   });
 
   describe('per-user track limit', () => {
     it('rejects upload when user has MAX_TRACKS_PER_USER tracks', async () => {
-      await seedIndex(RAW_USER_ID, MAX_TRACKS_PER_USER);
+      await seedIndex(TEST_USER_ID_HASHED, MAX_TRACKS_PER_USER);
 
       const res = await putTrack(GPX_TEMPLATE(9999));
       expect(res.status).toBe(429);
@@ -76,7 +77,7 @@ describe('Rate limits', () => {
     });
 
     it('allows upload when user has fewer than MAX_TRACKS_PER_USER tracks', async () => {
-      await seedIndex(RAW_USER_ID, MAX_TRACKS_PER_USER - 1);
+      await seedIndex(TEST_USER_ID_HASHED, MAX_TRACKS_PER_USER - 1);
 
       const res = await putTrack(GPX_TEMPLATE(9999));
       expect(res.status).toBe(201);
@@ -188,7 +189,7 @@ describe('Rate limits', () => {
 
       const delRes = await SELF.fetch(`https://api.runnerup.win/tracks/${id}`, {
         method: 'DELETE',
-        headers: { 'X-User-Id': RAW_USER_ID },
+        headers: { 'Authorization': `Bearer ${authToken}` },
       });
       expect(delRes.status).toBe(204);
 

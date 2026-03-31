@@ -13,6 +13,27 @@
   <div class="logo-container">
     <img src="logo.png" width="200">
   </div>
+  <div id="auth-bar">
+    <div id="auth-login-form">
+      <input type="text" id="auth-username" placeholder="Username" autocomplete="username">
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+      <button id="auth-login-btn">Login</button>
+      <button id="auth-register-toggle" class="secondary-btn">Register</button>
+      <span id="auth-error" class="auth-error"></span>
+    </div>
+    <div id="auth-register-form" style="display: none;">
+      <input type="text" id="reg-username" placeholder="Username" autocomplete="username">
+      <input type="password" id="reg-password" placeholder="Password" autocomplete="new-password">
+      <input type="text" id="reg-invite" placeholder="Invite code">
+      <button id="auth-register-btn">Register</button>
+      <button id="auth-back-btn" class="secondary-btn">Back</button>
+      <span id="reg-error" class="auth-error"></span>
+    </div>
+    <div id="auth-status" style="display: none;">
+      <span id="auth-username-display"></span>
+      <button id="auth-logout-btn" class="secondary-btn">Logout</button>
+    </div>
+  </div>
   <div id="control-bar">
     <div id="add-track">
       <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
