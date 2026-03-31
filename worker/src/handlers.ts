@@ -155,16 +155,12 @@ export async function handleTrackRoutes(
   }
 
   // GET /tracks/{id} — fetch a single track's GPX data.
+  // No ownership check: trackIds are HMAC-based capability URLs,
+  // so knowing the ID is sufficient authorization. This enables sharing.
   if (request.method === 'GET' && path.startsWith('/tracks/')) {
     const trackId = path.slice('/tracks/'.length);
     if (!trackId || !VALID_TRACK_ID.test(trackId)) {
       return jsonResponse({ error: 'Invalid track ID' }, 400);
-    }
-
-    // Verify ownership.
-    const index = await readIndex(env.GPX_BUCKET, userId);
-    if (!index.some((entry) => entry.id === trackId)) {
-      return jsonResponse({ error: 'Not found' }, 404);
     }
 
     const obj = await env.GPX_BUCKET.get(`gpx/${trackId}`);

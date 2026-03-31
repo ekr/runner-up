@@ -1,7 +1,9 @@
 // Server-side storage for GPX files via Cloudflare Workers + R2.
 // Track IDs are HMAC-based capability URLs (computed server-side).
 
-const API_BASE = 'https://api.runnerup.win';
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:8787'
+  : 'https://api.runnerup.win';
 
 // Get or provision a user ID.
 function getUserId() {
@@ -89,6 +91,7 @@ async function getAllStoredGPX() {
 
 // Get a single GPX track by ID.
 // Returns {id, data} where data is the GPX XML text.
+// No ownership check — trackIds are capability URLs, so this works for sharing too.
 async function getGPXById(storageId) {
   if (!storageId) return null;
 
@@ -120,32 +123,4 @@ async function clearAllStoredGPX() {
   } catch (e) {
     console.error('Failed to clear tracks on server:', e);
   }
-}
-
-// Load shared tracks by calling the share API.
-// Returns an array of {id, data} objects (1 or 2 tracks).
-async function loadSharedTracks(trackIds) {
-  const path = '/share/' + trackIds.join('/');
-  try {
-    const response = await fetch(`${API_BASE}${path}`);
-
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    // Single track returns {id, data}, two tracks returns {tracks: [{id, data}, ...]}.
-    if (result.tracks) {
-      return result.tracks;
-    }
-    return [result];
-  } catch (e) {
-    console.error('Failed to load shared tracks:', e);
-    return null;
-  }
-}
-
-// Construct a share URL from track IDs.
-function getShareUrl(trackIds) {
-  return `${window.location.origin}/#/share/${trackIds.join('/')}`;
 }

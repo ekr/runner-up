@@ -11,8 +11,6 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
         localStorage.removeItem(key);
       }
     }
-    // Also remove old gpxUploads key if present (migration cleanup)
-    localStorage.removeItem('gpxUploads');
   });
 }
 

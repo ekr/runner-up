@@ -9,9 +9,15 @@ const GPX_TEMPLATE = (i: number) => `<?xml version="1.0"?>
 <trkpt lat="37.${i}" lon="-122.0"><time>2024-01-01T00:00:00Z</time></trkpt>
 </trkseg></trk></gpx>`;
 
-const USER_ID = '00000000-0000-4000-8000-000000000001';
+const RAW_USER_ID = '00000000-0000-4000-8000-000000000001';
 
-async function putTrack(gpxText: string, userId = USER_ID): Promise<Response> {
+async function hashUserId(userId: string): Promise<string> {
+  const data = new TextEncoder().encode(userId);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function putTrack(gpxText: string, userId = RAW_USER_ID): Promise<Response> {
   return SELF.fetch('https://api.runnerup.win/tracks', {
     method: 'PUT',
     headers: { 'X-User-Id': userId, 'Content-Type': 'text/xml' },
@@ -19,7 +25,7 @@ async function putTrack(gpxText: string, userId = USER_ID): Promise<Response> {
   });
 }
 
-async function deleteAllTracks(userId = USER_ID): Promise<Response> {
+async function deleteAllTracks(userId = RAW_USER_ID): Promise<Response> {
   return SELF.fetch('https://api.runnerup.win/tracks', {
     method: 'DELETE',
     headers: { 'X-User-Id': userId },
@@ -36,12 +42,14 @@ async function setStats(stats: { totalBytes: number; writeCount: number; month: 
   await env.GPX_BUCKET.put('_stats', JSON.stringify(stats));
 }
 
-async function seedIndex(userId: string, count: number): Promise<void> {
+async function seedIndex(rawUserId: string, count: number): Promise<void> {
+  const hashedId = await hashUserId(rawUserId);
   const entries = [];
   for (let i = 0; i < count; i++) {
-    entries.push({ id: `fake-track-${i}`, date: null, startLat: null, startLon: null });
+    const id = i.toString(16).padStart(32, '0');
+    entries.push({ id, date: null, startLat: null, startLon: null });
   }
-  await env.GPX_BUCKET.put(`index/${userId}`, JSON.stringify(entries));
+  await env.GPX_BUCKET.put(`index/${hashedId}`, JSON.stringify(entries));
 }
 
 // Clean up R2 between tests.
@@ -59,7 +67,7 @@ describe('Rate limits', () => {
 
   describe('per-user track limit', () => {
     it('rejects upload when user has MAX_TRACKS_PER_USER tracks', async () => {
-      await seedIndex(USER_ID, MAX_TRACKS_PER_USER);
+      await seedIndex(RAW_USER_ID, MAX_TRACKS_PER_USER);
 
       const res = await putTrack(GPX_TEMPLATE(9999));
       expect(res.status).toBe(429);
@@ -68,7 +76,7 @@ describe('Rate limits', () => {
     });
 
     it('allows upload when user has fewer than MAX_TRACKS_PER_USER tracks', async () => {
-      await seedIndex(USER_ID, MAX_TRACKS_PER_USER - 1);
+      await seedIndex(RAW_USER_ID, MAX_TRACKS_PER_USER - 1);
 
       const res = await putTrack(GPX_TEMPLATE(9999));
       expect(res.status).toBe(201);
@@ -180,7 +188,7 @@ describe('Rate limits', () => {
 
       const delRes = await SELF.fetch(`https://api.runnerup.win/tracks/${id}`, {
         method: 'DELETE',
-        headers: { 'X-User-Id': USER_ID },
+        headers: { 'X-User-Id': RAW_USER_ID },
       });
       expect(delRes.status).toBe(204);
 

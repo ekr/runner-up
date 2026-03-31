@@ -138,7 +138,7 @@ test.describe('Saved Tracks Dropdown', () => {
     await expect(dropdown.locator('option')).toHaveCount(1); // Only placeholder
   });
 
-  test('should persist tracks across page reload', async ({ page }) => {
+  test('should auto-load track from URL hash after reload', async ({ page }) => {
     const mock = await setupApiMock(page);
     await page.reload();
 
@@ -148,18 +148,12 @@ test.describe('Saved Tracks Dropdown', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
-    // Reload page
+    // URL hash should now contain the track ID
+    const hashBefore = await page.evaluate(() => window.location.hash);
+    expect(hashBefore).toContain(mock.getTrackId(track1Data));
+
+    // Reload page — track should auto-load from URL hash
     await page.reload();
-
-    // Map should be empty (no auto-load)
-    await expect(page.locator(selectors.legendEntry)).toHaveCount(0);
-
-    // Dropdown should have the track
-    const dropdown = page.locator(selectors.savedTracksDropdown);
-    await expect(dropdown.locator('option')).toHaveCount(2);
-
-    // Can load track from dropdown (now shows date+time instead of filename)
-    await dropdown.selectOption({ index: 1 });
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
   });
 

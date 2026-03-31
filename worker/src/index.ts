@@ -1,22 +1,20 @@
 import { handleTrackRoutes } from './handlers';
-import { handleShareRoutes } from './share';
 
 export interface Env {
   GPX_BUCKET: R2Bucket;
   SHARE_SECRET: string;
 }
 
-const ALLOWED_ORIGIN = 'https://runnerup.win';
+const ALLOWED_ORIGINS = [
+  'https://runnerup.win',
+  'https://www.runnerup.win',
+];
 
 function corsHeaders(origin: string | null): Record<string, string> {
-  // In development, allow localhost origins too.
   const isLocalhost = origin ? /^http:\/\/localhost(:\d+)?$/.test(origin) : false;
-  const allowedOrigin =
-    origin && (origin === ALLOWED_ORIGIN || isLocalhost)
-      ? origin
-      : ALLOWED_ORIGIN;
+  const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || isLocalhost);
   return {
-    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
     'Access-Control-Expose-Headers': 'X-User-Id',
@@ -29,6 +27,13 @@ function jsonResponse(body: unknown, status: number, extra: Record<string, strin
     status,
     headers: { 'Content-Type': 'application/json', ...extra },
   });
+}
+
+// Hash a userId to avoid storing or exposing the raw UUID in R2 keys.
+async function hashUserId(userId: string): Promise<string> {
+  const data = new TextEncoder().encode(userId);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export default {
@@ -47,27 +52,23 @@ export default {
     const VALID_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     // User ID provisioning: read from header, or generate a new one.
-    let userId = request.headers.get('X-User-Id');
+    let rawUserId = request.headers.get('X-User-Id');
     let newUser = false;
-    if (!userId || !VALID_UUID.test(userId)) {
-      userId = crypto.randomUUID();
+    if (!rawUserId || !VALID_UUID.test(rawUserId)) {
+      rawUserId = crypto.randomUUID();
       newUser = true;
     }
 
-    // Add userId to cors headers for the response.
+    // Hash the userId for internal use (R2 keys, HMAC input).
+    const userId = await hashUserId(rawUserId);
+
+    // Return the raw (unhashed) userId to the client.
     const responseHeaders = { ...cors };
     if (newUser) {
-      responseHeaders['X-User-Id'] = userId;
+      responseHeaders['X-User-Id'] = rawUserId;
     }
 
     try {
-      // /share/* routes are public (no auth).
-      if (path.startsWith('/share/')) {
-        const result = await handleShareRoutes(request, env, path);
-        return addHeaders(result, responseHeaders);
-      }
-
-      // /tracks routes require a userId.
       if (path === '/tracks' || path.startsWith('/tracks/')) {
         const result = await handleTrackRoutes(request, env, userId, path);
         return addHeaders(result, responseHeaders);

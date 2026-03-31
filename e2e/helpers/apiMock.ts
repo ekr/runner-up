@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import * as crypto from 'crypto';
 
-const API_BASE = 'https://api.runnerup.win';
+const API_BASE = 'http://localhost:8787';
 
 interface TrackMeta {
   id: string;
@@ -157,55 +157,6 @@ export async function setupApiMock(page: Page) {
         headers: corsHeaders,
       });
       return;
-    }
-
-    // GET /share/{trackId}
-    if (method === 'GET' && path.startsWith('/share/')) {
-      const segments = path.slice('/share/'.length).split('/').filter(Boolean);
-      if (segments.length === 1) {
-        const track = tracks.find((t) => t.id === segments[0]);
-        if (track) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            headers: corsHeaders,
-            body: JSON.stringify({ id: track.id, data: track.data }),
-          });
-        } else {
-          await route.fulfill({
-            status: 404,
-            contentType: 'application/json',
-            headers: corsHeaders,
-            body: JSON.stringify({ error: 'Not found' }),
-          });
-        }
-        return;
-      }
-      if (segments.length === 2) {
-        const t1 = tracks.find((t) => t.id === segments[0]);
-        const t2 = tracks.find((t) => t.id === segments[1]);
-        if (t1 && t2) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            headers: corsHeaders,
-            body: JSON.stringify({
-              tracks: [
-                { id: t1.id, data: t1.data },
-                { id: t2.id, data: t2.data },
-              ],
-            }),
-          });
-        } else {
-          await route.fulfill({
-            status: 404,
-            contentType: 'application/json',
-            headers: corsHeaders,
-            body: JSON.stringify({ error: 'Not found' }),
-          });
-        }
-        return;
-      }
     }
 
     // Fallback

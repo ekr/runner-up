@@ -83,12 +83,8 @@ function dataUpdated() {
   document.querySelector("#add-track").style.display =
     data.length >= 2 ? "none" : "flex";
 
-  // Show share button when at least one track with a storage ID is loaded.
-  const shareButton = document.getElementById("share-button");
-  if (shareButton) {
-    const hasStoredTracks = dataToStorageId.some((id) => id !== null);
-    shareButton.style.display = hasStoredTracks ? "inline-block" : "none";
-  }
+  // Update the URL hash with current track IDs for sharing.
+  updateUrlHash();
 }
 
 function displayTracks() {
@@ -184,25 +180,6 @@ function updateMarkers() {
   }
 
   drawGraphs(currentTime, all_match);
-}
-
-// Save a GPX file to server storage. Returns the storage ID (HMAC-based).
-// Uses saveGPXToStorage from storage.js.
-
-// Delete a GPX track from server storage by its storage ID.
-// Uses deleteGPXFromStorage from storage.js.
-
-// Function to fetch and display a GPX track
-function fetchGPXTrack(url) {
-  fetch(url)
-    .then((response) => response.text())
-    .then((gpxData) => {
-      const track = parseGPX(gpxData);
-      data.push(track);
-      dataToStorageId.push(null); // Not from server storage
-      dataUpdated();
-    })
-    .catch((error) => console.error("Error loading GPX:", error));
 }
 
 // Get the set of storage IDs currently being displayed.
@@ -337,19 +314,10 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((response) => response.text())
     .then((v) => (document.querySelector("#deploy-date").textContent = v));
 
-  // Check to see if we are in test mode or loading shared tracks.
+  // Check if URL contains shared track IDs.
   const url = new URL(window.location);
-  console.log(url);
-  if (url.hash == "#test") {
-    console.log("Test mode");
-    fetchGPXTrack("track1.gpx");
-    fetchGPXTrack("track2.gpx");
-  } else if (url.hash == "#test2") {
-    console.log("Test2 mode");
-    fetchGPXTrack("priest-kennedy.gpx");
-    fetchGPXTrack("priest-sombroso.gpx");
-  } else if (url.hash.startsWith("#/share/")) {
-    loadShareFromHash(url.hash);
+  if (url.hash.length > 1) {
+    loadTracksFromHash(url.hash);
   }
 
   addFileListener("track");
@@ -357,7 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
   populateSavedTracks();
   addGraphTypeListener();
   addDisplayModeListener();
-  addShareListener();
 });
 
 // Add listener for display mode toggle.
@@ -371,44 +338,33 @@ function addDisplayModeListener() {
   }
 }
 
-// Add listener for share button.
-function addShareListener() {
-  const shareButton = document.getElementById("share-button");
-  if (!shareButton) return;
-
-  shareButton.addEventListener("click", () => {
-    const trackIds = dataToStorageId.filter((id) => id !== null);
-    if (trackIds.length === 0) return;
-
-    const shareUrl = getShareUrl(trackIds);
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      shareButton.textContent = "Link copied!";
-      setTimeout(() => { shareButton.textContent = "Share"; }, 2000);
-    }).catch(() => {
-      prompt("Share this URL:", shareUrl);
-    });
-  });
+// Update the URL hash with current track IDs so the URL is always shareable.
+function updateUrlHash() {
+  const trackIds = dataToStorageId.filter((id) => id !== null);
+  if (trackIds.length > 0) {
+    window.history.replaceState(null, '', '#' + trackIds.join('/'));
+  } else {
+    window.history.replaceState(null, '', window.location.pathname);
+  }
 }
 
-// Load shared tracks from a #/share/... hash.
-async function loadShareFromHash(hash) {
-  // Parse track IDs from hash: #/share/{id1} or #/share/{id1}/{id2}
-  const parts = hash.slice('#/share/'.length).split('/').filter(Boolean);
+// Load tracks from the URL hash (e.g., #trackId1/trackId2).
+async function loadTracksFromHash(hash) {
+  const parts = hash.slice(1).split('/').filter(Boolean);
   if (parts.length === 0 || parts.length > 2) return;
 
-  const tracks = await loadSharedTracks(parts);
-  if (!tracks) {
-    alert("Failed to load shared tracks.");
-    return;
-  }
-
-  for (const entry of tracks) {
+  for (const trackId of parts) {
     try {
+      const entry = await getGPXById(trackId);
+      if (!entry) {
+        console.error("Track not found:", trackId);
+        continue;
+      }
       const track = parseGPX(entry.data);
       data.push(track);
       dataToStorageId.push(entry.id);
-    } catch (parseErr) {
-      console.error("Failed to parse shared GPX data:", parseErr);
+    } catch (err) {
+      console.error("Failed to load shared track:", trackId, err);
     }
   }
   if (data.length > 0) {
