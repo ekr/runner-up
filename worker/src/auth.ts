@@ -1,12 +1,16 @@
+import { SignJWT, jwtVerify } from 'jose';
+import { constantTimeEqual } from '@oslojs/crypto/subtle';
+import { encodeHexLowerCase, decodeHex } from '@oslojs/encoding';
 import type { Env } from './index';
 
-// PBKDF2 parameters.
-const PBKDF2_ITERATIONS = 100_000;
+// PBKDF2 parameters. 50k iterations is a reasonable tradeoff for Workers'
+// CPU time budget while still providing good security.
+const PBKDF2_ITERATIONS = 50_000;
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
 
-// Token expiry: 30 days in seconds.
-const TOKEN_EXPIRY_SECONDS = 30 * 24 * 60 * 60;
+// Token expiry: 30 days.
+const TOKEN_EXPIRY = '30d';
 
 // Username: lowercase alphanumeric + hyphens, 3-30 chars.
 const VALID_USERNAME = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
@@ -17,12 +21,6 @@ interface UserRecord {
   passwordHash: string; // hex
   salt: string; // hex
   userId: string; // hashed UUID (64-char hex), used as R2 key prefix
-}
-
-interface TokenPayload {
-  sub: string; // userId (hashed)
-  username: string;
-  exp: number; // Unix timestamp
 }
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -37,8 +35,8 @@ function generateSalt(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(SALT_BYTES));
 }
 
-// Hash a password with PBKDF2-SHA256.
-async function hashPassword(password: string, salt: Uint8Array): Promise<string> {
+// Hash a password with PBKDF2-SHA256 via Web Crypto API.
+async function hashPassword(password: string, salt: Uint8Array): Promise<Uint8Array> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
@@ -51,71 +49,33 @@ async function hashPassword(password: string, salt: Uint8Array): Promise<string>
     keyMaterial,
     KEY_BYTES * 8,
   );
-  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return new Uint8Array(bits);
 }
 
-// Base64url encode (no padding).
-function base64urlEncode(data: Uint8Array): string {
-  const binStr = [...data].map((b) => String.fromCharCode(b)).join('');
-  return btoa(binStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+// Encode a secret string as a CryptoKey for jose.
+function secretKey(secret: string): Uint8Array {
+  return new TextEncoder().encode(secret);
 }
 
-// Base64url decode.
-function base64urlDecode(str: string): Uint8Array {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (str.length % 4)) % 4);
-  const binStr = atob(padded);
-  return new Uint8Array([...binStr].map((c) => c.charCodeAt(0)));
-}
-
-// Create an HMAC-signed token.
+// Create a signed JWT.
 export async function createToken(userId: string, username: string, secret: string): Promise<string> {
-  const payload: TokenPayload = {
-    sub: userId,
-    username,
-    exp: Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_SECONDS,
-  };
-  const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
-  const payloadB64 = base64urlEncode(payloadBytes);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64));
-  const sigB64 = base64urlEncode(new Uint8Array(sig));
-
-  return `${payloadB64}.${sigB64}`;
+  return new SignJWT({ username })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(userId)
+    .setExpirationTime(TOKEN_EXPIRY)
+    .setIssuedAt()
+    .sign(secretKey(secret));
 }
 
-// Verify an HMAC-signed token. Returns payload or null.
-export async function verifyToken(token: string, secret: string): Promise<TokenPayload | null> {
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-
-  const [payloadB64, sigB64] = parts;
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify'],
-  );
-
-  const sig = base64urlDecode(sigB64);
-  const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(payloadB64));
-  if (!valid) return null;
-
-  const payloadBytes = base64urlDecode(payloadB64);
-  const payload: TokenPayload = JSON.parse(new TextDecoder().decode(payloadBytes));
-
-  // Check expiry.
-  if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-
-  return payload;
+// Verify a JWT. Returns payload or null.
+export async function verifyToken(token: string, secret: string): Promise<{ sub: string; username: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, secretKey(secret));
+    if (!payload.sub || typeof payload.username !== 'string') return null;
+    return { sub: payload.sub, username: payload.username };
+  } catch {
+    return null;
+  }
 }
 
 // Extract userId from Authorization header. Returns null if not authenticated.
@@ -130,11 +90,11 @@ export async function extractUserId(request: Request, env: Env): Promise<{ userI
   return { userId: payload.sub, username: payload.username };
 }
 
-// Hash a userId the same way as index.ts.
-async function hashUserId(rawId: string): Promise<string> {
+// Hash a raw ID with SHA-256 (for userId storage keys).
+async function hashId(rawId: string): Promise<string> {
   const data = new TextEncoder().encode(rawId);
   const hash = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return encodeHexLowerCase(new Uint8Array(hash));
 }
 
 // Read a user record from R2.
@@ -147,14 +107,6 @@ async function readUser(bucket: R2Bucket, username: string): Promise<UserRecord 
 // Write a user record to R2.
 async function writeUser(bucket: R2Bucket, user: UserRecord): Promise<void> {
   await bucket.put(`user/${user.username}`, JSON.stringify(user));
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 // POST /auth/register
@@ -194,13 +146,13 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
   // Create user.
   const salt = generateSalt();
-  const passwordHash = await hashPassword(password, salt);
-  const userId = await hashUserId(crypto.randomUUID());
+  const hash = await hashPassword(password, salt);
+  const userId = await hashId(crypto.randomUUID());
 
   const user: UserRecord = {
     username,
-    passwordHash,
-    salt: [...salt].map((b) => b.toString(16).padStart(2, '0')).join(''),
+    passwordHash: encodeHexLowerCase(hash),
+    salt: encodeHexLowerCase(salt),
     userId,
   };
   await writeUser(env.GPX_BUCKET, user);
@@ -229,10 +181,11 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
     return jsonResponse({ error: 'Invalid username or password' }, 401);
   }
 
-  const salt = hexToBytes(user.salt);
+  const salt = decodeHex(user.salt);
   const hash = await hashPassword(password, salt);
+  const storedHash = decodeHex(user.passwordHash);
 
-  if (hash !== user.passwordHash) {
+  if (!constantTimeEqual(hash, storedHash)) {
     return jsonResponse({ error: 'Invalid username or password' }, 401);
   }
 
