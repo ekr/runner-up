@@ -16,12 +16,17 @@ export async function handleShareRoutes(
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
+  const VALID_TRACK_ID = /^[0-9a-f]{32}$/;
+
   // Strip /share/ prefix and split remaining path segments.
   const segments = path.slice('/share/'.length).split('/').filter(Boolean);
 
   if (segments.length === 1) {
     // GET /share/{trackId} — single track.
     const trackId = segments[0];
+    if (!VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
     const obj = await env.GPX_BUCKET.get(`gpx/${trackId}`);
     if (!obj) {
       return jsonResponse({ error: 'Not found' }, 404);
@@ -33,6 +38,9 @@ export async function handleShareRoutes(
   if (segments.length === 2) {
     // GET /share/{trackId1}/{trackId2} — two tracks for comparison.
     const [id1, id2] = segments;
+    if (!VALID_TRACK_ID.test(id1) || !VALID_TRACK_ID.test(id2)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
     const [obj1, obj2] = await Promise.all([
       env.GPX_BUCKET.get(`gpx/${id1}`),
       env.GPX_BUCKET.get(`gpx/${id2}`),

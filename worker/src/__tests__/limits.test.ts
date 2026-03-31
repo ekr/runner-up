@@ -9,7 +9,7 @@ const GPX_TEMPLATE = (i: number) => `<?xml version="1.0"?>
 <trkpt lat="37.${i}" lon="-122.0"><time>2024-01-01T00:00:00Z</time></trkpt>
 </trkseg></trk></gpx>`;
 
-const USER_ID = 'test-user-limits';
+const USER_ID = '00000000-0000-4000-8000-000000000001';
 
 async function putTrack(gpxText: string, userId = USER_ID): Promise<Response> {
   return SELF.fetch('https://api.runnerup.win/tracks', {
@@ -118,7 +118,7 @@ describe('Rate limits', () => {
       expect(body.error).toBe('Monthly write limit reached');
     });
 
-    it('resets write count when month rolls over', async () => {
+    it('resets write count but preserves totalBytes when month rolls over', async () => {
       await setStats({
         totalBytes: 5000,
         writeCount: MAX_MONTHLY_WRITES,
@@ -133,6 +133,21 @@ describe('Rate limits', () => {
       const currentMonth = new Date().toISOString().slice(0, 7);
       expect(stats!.month).toBe(currentMonth);
       expect(stats!.writeCount).toBe(1);
+      // totalBytes should be preserved from prior month plus the new upload.
+      expect(stats!.totalBytes).toBeGreaterThan(5000);
+    });
+
+    it('still enforces storage limit after month rollover', async () => {
+      await setStats({
+        totalBytes: MAX_TOTAL_STORAGE_BYTES - 10,
+        writeCount: MAX_MONTHLY_WRITES,
+        month: '2020-01',
+      });
+
+      const res = await putTrack(GPX_TEMPLATE(1));
+      expect(res.status).toBe(507);
+      const body = await res.json() as { error: string };
+      expect(body.error).toBe('Storage limit reached');
     });
   });
 

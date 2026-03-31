@@ -19,7 +19,7 @@ interface StoredTrackData {
 // Simulates HMAC-based track IDs. In tests we just use a hash since we
 // don't have the real SHARE_SECRET.
 function computeTestTrackId(userId: string, gpxText: string): string {
-  const hash = crypto.createHash('sha256').update(userId + gpxText).digest('hex');
+  const hash = crypto.createHash('sha256').update(userId + '\0' + gpxText).digest('hex');
   return hash.slice(0, 32); // 128 bits
 }
 

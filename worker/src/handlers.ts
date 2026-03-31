@@ -34,7 +34,7 @@ async function computeTrackId(secret: string, userId: string, gpxText: string): 
     false,
     ['sign'],
   );
-  const data = new TextEncoder().encode(userId + gpxText);
+  const data = new TextEncoder().encode(userId + '\0' + gpxText);
   const sig = await crypto.subtle.sign('HMAC', key, data);
   // Truncate to 128 bits (16 bytes) and hex-encode.
   const bytes = new Uint8Array(sig).slice(0, 16);
@@ -80,10 +80,11 @@ async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
   const obj = await bucket.get('_stats');
   if (obj) {
     const stats: GlobalStats = JSON.parse(await obj.text());
-    // Reset if month rolled over.
     if (stats.month === currentMonth) {
       return stats;
     }
+    // Month rolled over: reset writeCount but preserve totalBytes.
+    return { totalBytes: stats.totalBytes, writeCount: 0, month: currentMonth };
   }
   return { totalBytes: 0, writeCount: 0, month: currentMonth };
 }
@@ -92,6 +93,8 @@ async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
 async function writeStats(bucket: R2Bucket, stats: GlobalStats): Promise<void> {
   await bucket.put('_stats', JSON.stringify(stats));
 }
+
+const VALID_TRACK_ID = /^[0-9a-f]{32}$/;
 
 export async function handleTrackRoutes(
   request: Request,
@@ -154,8 +157,8 @@ export async function handleTrackRoutes(
   // GET /tracks/{id} — fetch a single track's GPX data.
   if (request.method === 'GET' && path.startsWith('/tracks/')) {
     const trackId = path.slice('/tracks/'.length);
-    if (!trackId) {
-      return jsonResponse({ error: 'Missing track ID' }, 400);
+    if (!trackId || !VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
     }
 
     // Verify ownership.
@@ -176,6 +179,9 @@ export async function handleTrackRoutes(
   // DELETE /tracks/{id} — delete a single track.
   if (request.method === 'DELETE' && path.startsWith('/tracks/') && path !== '/tracks/') {
     const trackId = path.slice('/tracks/'.length);
+    if (!VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
 
     const index = await readIndex(env.GPX_BUCKET, userId);
     const newIndex = index.filter((entry) => entry.id !== trackId);
@@ -185,8 +191,8 @@ export async function handleTrackRoutes(
     }
 
     // Subtract deleted object size from global stats.
-    const delObj = await env.GPX_BUCKET.get(`gpx/${trackId}`);
-    const delSize = delObj ? new TextEncoder().encode(await delObj.text()).length : 0;
+    const delHead = await env.GPX_BUCKET.head(`gpx/${trackId}`);
+    const delSize = delHead ? delHead.size : 0;
 
     await env.GPX_BUCKET.delete(`gpx/${trackId}`);
     await writeIndex(env.GPX_BUCKET, userId, newIndex);
@@ -207,9 +213,9 @@ export async function handleTrackRoutes(
     // Sum sizes for stats update.
     let totalDeleted = 0;
     for (const entry of index) {
-      const obj = await env.GPX_BUCKET.get(`gpx/${entry.id}`);
-      if (obj) {
-        totalDeleted += new TextEncoder().encode(await obj.text()).length;
+      const head = await env.GPX_BUCKET.head(`gpx/${entry.id}`);
+      if (head) {
+        totalDeleted += head.size;
       }
     }
 

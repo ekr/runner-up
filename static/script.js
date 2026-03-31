@@ -407,10 +407,12 @@ async function loadShareFromHash(hash) {
       const track = parseGPX(entry.data);
       data.push(track);
       dataToStorageId.push(entry.id);
-      dataUpdated();
     } catch (parseErr) {
       console.error("Failed to parse shared GPX data:", parseErr);
     }
+  }
+  if (data.length > 0) {
+    dataUpdated();
   }
   populateSavedTracks();
 }

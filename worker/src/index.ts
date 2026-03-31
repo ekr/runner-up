@@ -10,8 +10,9 @@ const ALLOWED_ORIGIN = 'https://runnerup.win';
 
 function corsHeaders(origin: string | null): Record<string, string> {
   // In development, allow localhost origins too.
+  const isLocalhost = origin ? /^http:\/\/localhost(:\d+)?$/.test(origin) : false;
   const allowedOrigin =
-    origin && (origin === ALLOWED_ORIGIN || origin.startsWith('http://localhost'))
+    origin && (origin === ALLOWED_ORIGIN || isLocalhost)
       ? origin
       : ALLOWED_ORIGIN;
   return {
@@ -19,6 +20,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
     'Access-Control-Expose-Headers': 'X-User-Id',
+    'Vary': 'Origin',
   };
 }
 
@@ -42,10 +44,12 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    const VALID_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     // User ID provisioning: read from header, or generate a new one.
     let userId = request.headers.get('X-User-Id');
     let newUser = false;
-    if (!userId) {
+    if (!userId || !VALID_UUID.test(userId)) {
       userId = crypto.randomUUID();
       newUser = true;
     }

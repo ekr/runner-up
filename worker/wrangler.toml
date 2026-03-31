@@ -6,5 +6,6 @@ compatibility_date = "2024-12-01"
 binding = "GPX_BUCKET"
 bucket_name = "runnerup-gpx"
 
+# Dev-only fallback. Production uses: wrangler secret put SHARE_SECRET
 [vars]
 SHARE_SECRET = "test-secret-for-development-only"
