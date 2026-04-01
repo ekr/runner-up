@@ -225,6 +225,18 @@ export async function handleChangePassword(request: Request, env: Env, username:
     return jsonResponse({ error: 'Current password and new password required' }, 400);
   }
 
+  if (currentPassword.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: 'Current password is incorrect' }, 401);
+  }
+
+  // Validate new password length before doing any crypto work.
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return jsonResponse({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
+  }
+  if (newPassword.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: `Password must be at most ${MAX_PASSWORD_LENGTH} characters` }, 400);
+  }
+
   const user = await readUser(env.GPX_BUCKET, username);
   if (!user) {
     return jsonResponse({ error: 'User not found' }, 404);
@@ -237,14 +249,6 @@ export async function handleChangePassword(request: Request, env: Env, username:
 
   if (!constantTimeEqual(hash, storedHash)) {
     return jsonResponse({ error: 'Current password is incorrect' }, 401);
-  }
-
-  // Validate new password.
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return jsonResponse({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
-  }
-  if (newPassword.length > MAX_PASSWORD_LENGTH) {
-    return jsonResponse({ error: `Password must be at most ${MAX_PASSWORD_LENGTH} characters` }, 400);
   }
 
   // Hash new password and update user record.
@@ -271,6 +275,10 @@ export async function handleDeleteAccount(request: Request, env: Env, userId: st
 
   if (!password) {
     return jsonResponse({ error: 'Password required' }, 400);
+  }
+
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: 'Password is incorrect' }, 401);
   }
 
   const user = await readUser(env.GPX_BUCKET, username);

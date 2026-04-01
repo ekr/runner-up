@@ -222,9 +222,13 @@ export async function handleSettingsRoutes(
 
   // PUT /settings — write user settings.
   if (request.method === 'PUT') {
+    const text = await request.text();
+    if (text.length > 4096) {
+      return jsonResponse({ error: 'Settings too large' }, 400);
+    }
     let body: Record<string, unknown>;
     try {
-      body = await request.json();
+      body = JSON.parse(text);
     } catch {
       return jsonResponse({ error: 'Invalid JSON' }, 400);
     }
