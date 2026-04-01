@@ -1,8 +1,6 @@
 function Units() {
-  const settings = Settings();
-
   function metric() {
-    return settings.get("units") === "metric";
+    return Settings.get("units") === "metric";
   }
 
   function distanceValue(distance) {

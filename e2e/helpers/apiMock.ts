@@ -61,6 +61,8 @@ export async function setupApiMock(page: Page) {
 
   // In-memory storage for the mock.
   let tracks: StoredTrackData[] = [];
+  let settings: Record<string, unknown> = {};
+  let currentPassword = 'testpassword';
 
   // Set auth token and username in localStorage so the client is logged in.
   await page.evaluate(({ token, username }) => {
@@ -109,6 +111,115 @@ export async function setupApiMock(page: Page) {
         contentType: 'application/json',
         headers: corsHeaders,
         body: JSON.stringify({ token: TEST_AUTH_TOKEN, username: TEST_USERNAME }),
+      });
+      return;
+    }
+
+    // POST /auth/change-password
+    if (method === 'POST' && path === '/auth/change-password') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (body.currentPassword !== currentPassword) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Current password is incorrect' }),
+        });
+        return;
+      }
+      if (!body.newPassword || body.newPassword.length < 8) {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Password must be at least 8 characters' }),
+        });
+        return;
+      }
+      currentPassword = body.newPassword;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ token: TEST_AUTH_TOKEN, username: TEST_USERNAME }),
+      });
+      return;
+    }
+
+    // DELETE /auth/account
+    if (method === 'DELETE' && path === '/auth/account') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (body.password !== currentPassword) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Password is incorrect' }),
+        });
+        return;
+      }
+      tracks = [];
+      settings = {};
+      await route.fulfill({
+        status: 204,
+        headers: corsHeaders,
+      });
+      return;
+    }
+
+    // GET /settings
+    if (method === 'GET' && path === '/settings') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify(settings),
+      });
+      return;
+    }
+
+    // PUT /settings
+    if (method === 'PUT' && path === '/settings') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      settings = JSON.parse(request.postData() || '{}');
+      await route.fulfill({
+        status: 204,
+        headers: corsHeaders,
       });
       return;
     }
@@ -230,5 +341,7 @@ export async function setupApiMock(page: Page) {
       }
     },
     getTrackId: (gpxText: string) => computeTestTrackId(TEST_USER_ID, gpxText),
+    getSettings: () => ({ ...settings }),
+    setPassword: (pw: string) => { currentPassword = pw; },
   };
 }

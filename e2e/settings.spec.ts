@@ -1,70 +1,200 @@
 import { test, expect } from '@playwright/test';
 import { selectors } from './helpers/selectors';
-import { clearLocalStorageNow, getSetting } from './helpers/localStorage';
+import { setupApiMock } from './helpers/apiMock';
+import { clearLocalStorageNow } from './helpers/localStorage';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const track1Data = fs.readFileSync(path.join(__dirname, 'fixtures', 'track1.gpx'), 'utf-8');
 
 test.describe('Settings', () => {
-  test.describe('basic functionality', () => {
+  test.describe('logged out', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto('/settings.html');
       await clearLocalStorageNow(page);
       await page.reload();
     });
 
-    test('should display settings page', async ({ page }) => {
-      await expect(page.locator('h2')).toHaveText('Settings');
-      await expect(page.locator(selectors.unitsDropdown)).toBeVisible();
-      await expect(page.locator(selectors.saveButton)).toBeVisible();
-    });
-
-    test('should have Imperial as default units', async ({ page }) => {
-      const unitsDropdown = page.locator(selectors.unitsDropdown);
-      await expect(unitsDropdown).toHaveValue('imperial');
-    });
-
-    test('should save units preference to localStorage', async ({ page }) => {
-      const unitsDropdown = page.locator(selectors.unitsDropdown);
-      const saveButton = page.locator(selectors.saveButton);
-
-      // Change to metric
-      await unitsDropdown.selectOption('metric');
-      await saveButton.click();
-
-      // Check localStorage
-      const savedUnits = await getSetting(page, 'units');
-      expect(savedUnits).toBe('metric');
+    test('should show login prompt when not logged in', async ({ page }) => {
+      await expect(page.locator(selectors.settingsLoginPrompt)).toBeVisible();
+      await expect(page.locator(selectors.settingsContent)).toBeHidden();
     });
 
     test('should navigate to settings from main page', async ({ page }) => {
       await page.goto('/');
-
-      // Click settings link
       await page.click('a[href="/settings.html"]');
-
-      // Should be on settings page
       await expect(page).toHaveURL(/settings\.html/);
       await expect(page.locator('h2')).toHaveText('Settings');
     });
   });
 
-  test.describe('persistence', () => {
-    test('should persist units preference across page loads', async ({ page }) => {
-      // Clear manually before first navigation
+  test.describe('logged in', () => {
+    test.beforeEach(async ({ page }) => {
       await page.goto('/settings.html');
       await clearLocalStorageNow(page);
+      const mock = await setupApiMock(page);
       await page.reload();
+    });
 
+    test('should show settings content when logged in', async ({ page }) => {
+      await expect(page.locator(selectors.settingsContent)).toBeVisible();
+      await expect(page.locator(selectors.settingsLoginPrompt)).toBeHidden();
+    });
+
+    test('should display units dropdown with default value', async ({ page }) => {
+      await expect(page.locator(selectors.unitsDropdown)).toBeVisible();
+      await expect(page.locator(selectors.unitsDropdown)).toHaveValue('imperial');
+    });
+
+    test('should save units preference', async ({ page }) => {
       const unitsDropdown = page.locator(selectors.unitsDropdown);
       const saveButton = page.locator(selectors.saveButton);
 
-      // Change to metric and save
       await unitsDropdown.selectOption('metric');
       await saveButton.click();
 
-      // Reload page
+      await expect(page.locator(selectors.unitsSuccess)).toHaveText('Saved');
+    });
+
+    test('should persist units preference across page loads', async ({ page }) => {
+      // The mock is already set up, change units and save
+      const unitsDropdown = page.locator(selectors.unitsDropdown);
+      const saveButton = page.locator(selectors.saveButton);
+
+      await unitsDropdown.selectOption('metric');
+      await saveButton.click();
+      await expect(page.locator(selectors.unitsSuccess)).toHaveText('Saved');
+
+      // Reload page (mock state persists via route handler)
       await page.reload();
 
-      // Should still show metric
       await expect(unitsDropdown).toHaveValue('metric');
+    });
+  });
+
+  test.describe('change password', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      await setupApiMock(page);
+      await page.reload();
+    });
+
+    test('should show error for mismatched passwords', async ({ page }) => {
+      await page.fill(selectors.currentPassword, 'testpassword');
+      await page.fill(selectors.newPassword, 'newpassword1');
+      await page.fill(selectors.confirmPassword, 'differentpassword');
+      await page.click(selectors.changePasswordBtn);
+
+      await expect(page.locator(selectors.passwordError)).toHaveText('New passwords do not match.');
+    });
+
+    test('should show error for short password', async ({ page }) => {
+      await page.fill(selectors.currentPassword, 'testpassword');
+      await page.fill(selectors.newPassword, 'short');
+      await page.fill(selectors.confirmPassword, 'short');
+      await page.click(selectors.changePasswordBtn);
+
+      await expect(page.locator(selectors.passwordError)).toHaveText('New password must be at least 8 characters.');
+    });
+
+    test('should show error for wrong current password', async ({ page }) => {
+      await page.fill(selectors.currentPassword, 'wrongpassword');
+      await page.fill(selectors.newPassword, 'newpassword1');
+      await page.fill(selectors.confirmPassword, 'newpassword1');
+      await page.click(selectors.changePasswordBtn);
+
+      await expect(page.locator(selectors.passwordError)).toHaveText('Current password is incorrect');
+    });
+
+    test('should change password successfully', async ({ page }) => {
+      await page.fill(selectors.currentPassword, 'testpassword');
+      await page.fill(selectors.newPassword, 'newpassword1');
+      await page.fill(selectors.confirmPassword, 'newpassword1');
+      await page.click(selectors.changePasswordBtn);
+
+      await expect(page.locator(selectors.passwordSuccess)).toHaveText('Password changed successfully.');
+      // Inputs should be cleared
+      await expect(page.locator(selectors.currentPassword)).toHaveValue('');
+    });
+  });
+
+  test.describe('track management', () => {
+    test('should show empty state when no tracks', async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      await setupApiMock(page);
+      await page.reload();
+
+      await expect(page.locator('.track-empty')).toHaveText('No tracks saved.');
+    });
+
+    test('should list tracks', async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      const mock = await setupApiMock(page);
+      await mock.seedTracks([track1Data]);
+      await page.reload();
+
+      await expect(page.locator(selectors.trackItem)).toHaveCount(1);
+    });
+
+    test('should delete a track', async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      const mock = await setupApiMock(page);
+      await mock.seedTracks([track1Data]);
+      await page.reload();
+
+      await expect(page.locator(selectors.trackItem)).toHaveCount(1);
+
+      // Accept the confirm dialog
+      page.on('dialog', (dialog) => dialog.accept());
+      await page.locator(`${selectors.trackItem} .delete-button`).click();
+
+      await expect(page.locator(selectors.trackItem)).toHaveCount(0);
+      await expect(page.locator('.track-empty')).toHaveText('No tracks saved.');
+      expect(mock.getTrackCount()).toBe(0);
+    });
+  });
+
+  test.describe('delete account', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      await setupApiMock(page);
+      await page.reload();
+    });
+
+    test('should show confirmation form on delete button click', async ({ page }) => {
+      await expect(page.locator(selectors.deleteConfirm)).toBeHidden();
+      await page.click(selectors.deleteAccountBtn);
+      await expect(page.locator(selectors.deleteConfirm)).toBeVisible();
+      await expect(page.locator(selectors.deleteAccountBtn)).toBeHidden();
+    });
+
+    test('should cancel deletion', async ({ page }) => {
+      await page.click(selectors.deleteAccountBtn);
+      await page.click(selectors.deleteCancelBtn);
+      await expect(page.locator(selectors.deleteConfirm)).toBeHidden();
+      await expect(page.locator(selectors.deleteAccountBtn)).toBeVisible();
+    });
+
+    test('should show error for wrong password', async ({ page }) => {
+      await page.click(selectors.deleteAccountBtn);
+      await page.fill(selectors.deletePassword, 'wrongpassword');
+      await page.click(selectors.deleteConfirmBtn);
+
+      await expect(page.locator(selectors.deleteError)).toHaveText('Password is incorrect');
+    });
+
+    test('should delete account and redirect', async ({ page }) => {
+      await page.click(selectors.deleteAccountBtn);
+      await page.fill(selectors.deletePassword, 'testpassword');
+      await page.click(selectors.deleteConfirmBtn);
+
+      // Should redirect to main page
+      await expect(page).toHaveURL(/\/$/);
     });
   });
 });
