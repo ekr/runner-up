@@ -196,6 +196,7 @@ function getDisplayedStorageIds() {
 // Excludes tracks that are already being displayed.
 // If a track is displayed, sorts remaining tracks by proximity to displayed track's start.
 async function populateSavedTracks() {
+  if (!isLoggedIn()) return;
   const select = document.getElementById("saved-tracks");
 
   // Clear existing options except the default placeholder.
