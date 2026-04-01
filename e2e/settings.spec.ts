@@ -26,6 +26,47 @@ test.describe('Settings', () => {
       await expect(page).toHaveURL(/settings\.html/);
       await expect(page.locator('h2')).toHaveText('Settings');
     });
+
+    test('should show back link that navigates to main page', async ({ page }) => {
+      const backLink = page.locator(selectors.settingsBack + ' a');
+      await expect(backLink).toBeVisible();
+      await expect(backLink).toHaveAttribute('href', '/');
+      await backLink.click();
+      await expect(page).toHaveURL(/\/$/);
+    });
+  });
+
+  test.describe('layout', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      await setupApiMock(page);
+      await page.reload();
+    });
+
+    test('should have a centered container with max-width', async ({ page }) => {
+      const container = page.locator(selectors.settingsContainer);
+      await expect(container).toBeVisible();
+      const maxWidth = await container.evaluate(el => getComputedStyle(el).maxWidth);
+      expect(maxWidth).toBe('600px');
+    });
+
+    test('should render settings in card-style sections', async ({ page }) => {
+      const sections = page.locator(selectors.settingsSection);
+      // Units, Change Password, My Tracks, Delete Account
+      await expect(sections).toHaveCount(4);
+
+      // Verify card styling on first section
+      const border = await sections.first().evaluate(el => getComputedStyle(el).borderRadius);
+      expect(border).toBe('6px');
+    });
+
+    test('should display units controls inline', async ({ page }) => {
+      const inline = page.locator('.settings-inline');
+      await expect(inline).toBeVisible();
+      const display = await inline.evaluate(el => getComputedStyle(el).display);
+      expect(display).toBe('flex');
+    });
   });
 
   test.describe('logged in', () => {
