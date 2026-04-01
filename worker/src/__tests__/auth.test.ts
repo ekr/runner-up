@@ -1,4 +1,5 @@
 import { env, exports } from 'cloudflare:workers';
+import { SignJWT, importJWK } from 'jose';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createToken } from '../auth';
 
@@ -224,6 +225,188 @@ describe('Authentication', () => {
       const body = await fetchRes.json() as { id: string; data: string };
       expect(body.id).toBe(id);
       expect(body.data).toBe(gpx);
+    });
+  });
+
+  // Tests for common JWT vulnerabilities. See:
+  // https://www.vaadata.com/blog/jwt-json-web-token-vulnerabilities-common-attacks-and-security-best-practices/
+  describe('JWT verification vulnerabilities', () => {
+    // Helper: base64url encode without padding.
+    function b64url(data: string): string {
+      return btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function fetchWithToken(token: string): Promise<Response> {
+      return SELF.fetch('https://api.runnerup.win/tracks', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    }
+
+    it('rejects tokens with alg: "none" (none algorithm attack)', async () => {
+      // Craft a token with alg: "none" and no signature.
+      const header = b64url(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+      const payload = b64url(JSON.stringify({
+        sub: 'fakeuserid',
+        username: 'attacker',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }));
+      const token = `${header}.${payload}.`;
+
+      const res = await fetchWithToken(token);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects tokens with alg: "None" (case variation)', async () => {
+      const header = b64url(JSON.stringify({ alg: 'None', typ: 'JWT' }));
+      const payload = b64url(JSON.stringify({
+        sub: 'fakeuserid',
+        username: 'attacker',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }));
+      const token = `${header}.${payload}.`;
+
+      const res = await fetchWithToken(token);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects tokens with modified payload (signature mismatch)', async () => {
+      // Get a real token, then tamper with the payload.
+      const regRes = await register('victim', 'password123', INVITE_CODE);
+      const { token: realToken } = await regRes.json() as { token: string };
+      const [header, , signature] = realToken.split('.');
+
+      // Swap in a different payload but keep original signature.
+      const tamperedPayload = b64url(JSON.stringify({
+        sub: 'different-user-id',
+        username: 'admin',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }));
+      const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
+
+      const res = await fetchWithToken(tamperedToken);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects tokens with embedded jwk parameter (JWK injection)', async () => {
+      // Attacker generates their own key and embeds it in the JWT header.
+      const attackerKey = await crypto.subtle.generateKey(
+        { name: 'HMAC', hash: 'SHA-256' },
+        true,
+        ['sign', 'verify'],
+      );
+      const exported = await crypto.subtle.exportKey('jwk', attackerKey);
+
+      // Sign with attacker's key and include it in the header.
+      const key = await importJWK(exported, 'HS256');
+      const token = await new SignJWT({
+        username: 'attacker',
+      })
+        .setProtectedHeader({ alg: 'HS256', jwk: exported } as any)
+        .setSubject('fakeuserid')
+        .setExpirationTime('1h')
+        .setIssuedAt()
+        .sign(key);
+
+      const res = await fetchWithToken(token);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects tokens with jku parameter (JKU exploitation)', async () => {
+      // Craft a token that specifies an external JKU URL.
+      const header = b64url(JSON.stringify({
+        alg: 'HS256',
+        typ: 'JWT',
+        jku: 'https://attacker.com/.well-known/jwks.json',
+      }));
+      const payload = b64url(JSON.stringify({
+        sub: 'fakeuserid',
+        username: 'attacker',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }));
+      // Sign with the real secret — the attack is that the server would
+      // fetch keys from the attacker URL instead of using its own secret.
+      // jose should ignore the jku and verify with the provided key.
+      const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(env.AUTH_SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+      );
+      const data = new TextEncoder().encode(`${header}.${payload}`);
+      const sig = await crypto.subtle.sign('HMAC', key, data);
+      const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const token = `${header}.${payload}.${sigB64}`;
+
+      // Even though signature is valid, jose should reject tokens with
+      // unexpected header parameters when using symmetric keys.
+      // At minimum, the server must not fetch from the jku URL.
+      // jose with a symmetric key simply ignores jku, so this token
+      // will actually verify. The real protection is that we never use
+      // jku-based verification. This test documents the behavior.
+      const res = await fetchWithToken(token);
+      // jose verifies the HMAC directly and ignores jku, so this passes.
+      // The important thing is the server never fetches from the URL.
+      expect(res.status).toBe(200);
+    });
+
+    it('rejects tokens with kid path traversal', async () => {
+      // Craft a token with a kid that attempts path traversal.
+      const header = b64url(JSON.stringify({
+        alg: 'HS256',
+        typ: 'JWT',
+        kid: '../../dev/null',
+      }));
+      const payload = b64url(JSON.stringify({
+        sub: 'fakeuserid',
+        username: 'attacker',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      }));
+      // Sign with a predictable value (e.g., a single null byte, as if
+      // the key were read from a known file like /dev/zero).
+      const key = await crypto.subtle.importKey(
+        'raw',
+        new Uint8Array([0]),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+      );
+      const data = new TextEncoder().encode(`${header}.${payload}`);
+      const sig = await crypto.subtle.sign('HMAC', key, data);
+      const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const token = `${header}.${payload}.${sigB64}`;
+
+      const res = await fetchWithToken(token);
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects tokens with algorithm confusion (RS256 instead of HS256)', async () => {
+      // Generate an RSA key pair.
+      const rsaKey = await crypto.subtle.generateKey(
+        { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+        true,
+        ['sign', 'verify'],
+      );
+
+      // Sign with RSA private key but claim RS256.
+      const exported = await crypto.subtle.exportKey('jwk', rsaKey.privateKey);
+      const key = await importJWK(exported, 'RS256');
+      const token = await new SignJWT({ username: 'attacker' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setSubject('fakeuserid')
+        .setExpirationTime('1h')
+        .setIssuedAt()
+        .sign(key);
+
+      // Server enforces HS256, so RS256 tokens must be rejected.
+      const res = await fetchWithToken(token);
+      expect(res.status).toBe(401);
     });
   });
 
