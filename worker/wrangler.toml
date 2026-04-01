@@ -6,7 +6,6 @@ compatibility_date = "2024-12-01"
 binding = "GPX_BUCKET"
 bucket_name = "runnerup-gpx"
 
-# Dev-only fallbacks. Production uses: wrangler secret put <NAME>
-[vars]
-SHARE_SECRET = "test-secret-for-development-only"
-AUTH_SECRET = "test-auth-secret-for-development-only"
+# Secrets (SHARE_SECRET, AUTH_SECRET, INVITE_CODE) are set via:
+#   wrangler secret put <NAME>
+# For local dev, add them to .dev.vars (gitignored).
