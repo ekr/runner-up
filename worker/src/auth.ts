@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { constantTimeEqual } from '@oslojs/crypto/subtle';
 import { encodeHexLowerCase, decodeHex } from '@oslojs/encoding';
 import type { Env } from './index';
+import { readIndex, readStats, writeStats } from './handlers';
 
 // PBKDF2 parameters. 50k iterations is a reasonable tradeoff for Workers'
 // CPU time budget while still providing good security.
@@ -207,4 +208,100 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 
   const token = await createToken(user.userId, user.username, env.AUTH_SECRET);
   return jsonResponse({ token, username: user.username }, 200);
+}
+
+// POST /auth/change-password
+export async function handleChangePassword(request: Request, env: Env, username: string): Promise<Response> {
+  let body: { currentPassword?: string; newPassword?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON' }, 400);
+  }
+
+  const { currentPassword, newPassword } = body;
+
+  if (!currentPassword || !newPassword) {
+    return jsonResponse({ error: 'Current password and new password required' }, 400);
+  }
+
+  const user = await readUser(env.GPX_BUCKET, username);
+  if (!user) {
+    return jsonResponse({ error: 'User not found' }, 404);
+  }
+
+  // Verify current password.
+  const salt = decodeHex(user.salt);
+  const hash = await hashPassword(currentPassword, salt);
+  const storedHash = decodeHex(user.passwordHash);
+
+  if (!constantTimeEqual(hash, storedHash)) {
+    return jsonResponse({ error: 'Current password is incorrect' }, 401);
+  }
+
+  // Validate new password.
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return jsonResponse({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
+  }
+  if (newPassword.length > MAX_PASSWORD_LENGTH) {
+    return jsonResponse({ error: `Password must be at most ${MAX_PASSWORD_LENGTH} characters` }, 400);
+  }
+
+  // Hash new password and update user record.
+  const newSalt = generateSalt();
+  const newHash = await hashPassword(newPassword, newSalt);
+  user.passwordHash = encodeHexLowerCase(newHash);
+  user.salt = encodeHexLowerCase(newSalt);
+  await writeUser(env.GPX_BUCKET, user);
+
+  const token = await createToken(user.userId, user.username, env.AUTH_SECRET);
+  return jsonResponse({ token, username: user.username }, 200);
+}
+
+// DELETE /auth/account
+export async function handleDeleteAccount(request: Request, env: Env, userId: string, username: string): Promise<Response> {
+  let body: { password?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON' }, 400);
+  }
+
+  const { password } = body;
+
+  if (!password) {
+    return jsonResponse({ error: 'Password required' }, 400);
+  }
+
+  const user = await readUser(env.GPX_BUCKET, username);
+  if (!user) {
+    return jsonResponse({ error: 'User not found' }, 404);
+  }
+
+  // Verify password.
+  const salt = decodeHex(user.salt);
+  const hash = await hashPassword(password, salt);
+  const storedHash = decodeHex(user.passwordHash);
+
+  if (!constantTimeEqual(hash, storedHash)) {
+    return jsonResponse({ error: 'Password is incorrect' }, 401);
+  }
+
+  // Delete all tracks.
+  const index = await readIndex(env.GPX_BUCKET, userId);
+  const totalDeleted = index.reduce((sum, entry) => sum + ((entry as { sizeBytes?: number }).sizeBytes || 0), 0);
+  await Promise.all(index.map((entry) => env.GPX_BUCKET.delete(`gpx/${entry.id}`)));
+  await env.GPX_BUCKET.delete(`index/${userId}`);
+
+  if (totalDeleted > 0) {
+    const stats = await readStats(env.GPX_BUCKET);
+    stats.totalBytes = Math.max(0, stats.totalBytes - totalDeleted);
+    await writeStats(env.GPX_BUCKET, stats);
+  }
+
+  // Delete settings and user record.
+  await env.GPX_BUCKET.delete(`settings/${userId}`);
+  await env.GPX_BUCKET.delete(`user/${username}`);
+
+  return new Response(null, { status: 204 });
 }

@@ -194,3 +194,89 @@
 .download-button:focus-visible {
    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
 }
+
+/* Settings page */
+.settings-section {
+  margin: 20px 0;
+  padding: 15px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.settings-section h3 {
+  margin-top: 0;
+}
+
+.settings-section input[type="password"] {
+  display: block;
+  margin: 8px 0;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 14px;
+  width: 250px;
+}
+
+.settings-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.settings-actions button {
+  padding: 6px 14px;
+  border: 1px solid #ccc;
+  background: #f9f9f9;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.settings-actions button:hover {
+  background: #eee;
+}
+
+.settings-success {
+  color: #090;
+  font-size: 13px;
+}
+
+.danger-btn {
+  padding: 6px 14px;
+  border: 1px solid #c00;
+  background: #fff;
+  color: #c00;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.danger-btn:hover {
+  background: #c00;
+  color: #fff;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.track-item-info {
+  flex: 1;
+}
+
+.track-item-date {
+  font-weight: bold;
+}
+
+.track-item-details {
+  font-size: 13px;
+  color: #666;
+}
+
+.track-empty {
+  color: #666;
+  font-style: italic;
+}

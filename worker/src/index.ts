@@ -1,5 +1,5 @@
-import { handleTrackRoutes } from './handlers';
-import { handleRegister, handleLogin, extractUserId } from './auth';
+import { handleTrackRoutes, handleSettingsRoutes } from './handlers';
+import { handleRegister, handleLogin, handleChangePassword, handleDeleteAccount, extractUserId } from './auth';
 
 export interface Env {
   GPX_BUCKET: R2Bucket;
@@ -58,6 +58,28 @@ export default {
       }
       if (normalizedPath === '/auth/login' && request.method === 'POST') {
         const result = await handleLogin(request, env);
+        return addHeaders(result, cors);
+      }
+
+      // Authenticated auth routes.
+      if (normalizedPath === '/auth/change-password' && request.method === 'POST') {
+        const auth = await extractUserId(request, env);
+        if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
+        const result = await handleChangePassword(request, env, auth.username);
+        return addHeaders(result, cors);
+      }
+      if (normalizedPath === '/auth/account' && request.method === 'DELETE') {
+        const auth = await extractUserId(request, env);
+        if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
+        const result = await handleDeleteAccount(request, env, auth.userId, auth.username);
+        return addHeaders(result, cors);
+      }
+
+      // Settings routes (authenticated).
+      if (normalizedPath === '/settings') {
+        const auth = await extractUserId(request, env);
+        if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
+        const result = await handleSettingsRoutes(request, env, auth.userId);
         return addHeaders(result, cors);
       }
 

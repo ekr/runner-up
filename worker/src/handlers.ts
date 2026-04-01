@@ -63,7 +63,7 @@ function extractGPXMetadata(gpxText: string): { date: string | null; startLat: n
 }
 
 // Read the per-user index from R2.
-async function readIndex(bucket: R2Bucket, userId: string): Promise<TrackMeta[]> {
+export async function readIndex(bucket: R2Bucket, userId: string): Promise<TrackMeta[]> {
   const obj = await bucket.get(`index/${userId}`);
   if (!obj) return [];
   const text = await obj.text();
@@ -76,7 +76,7 @@ async function writeIndex(bucket: R2Bucket, userId: string, index: TrackMeta[]):
 }
 
 // Read global usage stats from R2.
-async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
+export async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const obj = await bucket.get('_stats');
   if (obj) {
@@ -91,7 +91,7 @@ async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
 }
 
 // Write global usage stats to R2.
-async function writeStats(bucket: R2Bucket, stats: GlobalStats): Promise<void> {
+export async function writeStats(bucket: R2Bucket, stats: GlobalStats): Promise<void> {
   await bucket.put('_stats', JSON.stringify(stats));
 }
 
@@ -202,6 +202,33 @@ export async function handleTrackRoutes(
       await writeStats(env.GPX_BUCKET, stats);
     }
 
+    return new Response(null, { status: 204 });
+  }
+
+  return jsonResponse({ error: 'Method not allowed' }, 405);
+}
+
+export async function handleSettingsRoutes(
+  request: Request,
+  env: Env,
+  userId: string,
+): Promise<Response> {
+  // GET /settings — read user settings.
+  if (request.method === 'GET') {
+    const obj = await env.GPX_BUCKET.get(`settings/${userId}`);
+    if (!obj) return jsonResponse({}, 200);
+    return jsonResponse(JSON.parse(await obj.text()), 200);
+  }
+
+  // PUT /settings — write user settings.
+  if (request.method === 'PUT') {
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400);
+    }
+    await env.GPX_BUCKET.put(`settings/${userId}`, JSON.stringify(body));
     return new Response(null, { status: 204 });
   }
 

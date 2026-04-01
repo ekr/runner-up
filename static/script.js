@@ -341,6 +341,7 @@ function setupAuthListeners() {
 
     try {
       await apiLogin(username, password);
+      await Settings.load();
       updateAuthUI();
       populateSavedTracks();
     } catch (e) {
@@ -380,6 +381,7 @@ function setupAuthListeners() {
 
     try {
       await apiRegister(username, password, inviteCode);
+      await Settings.load();
       updateAuthUI();
       populateSavedTracks();
     } catch (e) {
@@ -427,6 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
   addFileListener("track");
   addSavedTrackListener();
   if (isLoggedIn()) {
+    Settings.load();
     populateSavedTracks();
   }
   addGraphTypeListener();

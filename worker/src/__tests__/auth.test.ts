@@ -410,6 +410,178 @@ describe('Authentication', () => {
     });
   });
 
+  describe('change password', () => {
+    let token: string;
+
+    beforeEach(async () => {
+      const res = await register('carol', 'oldpassword1', INVITE_CODE);
+      expect(res.status).toBe(201);
+      const body = await res.json() as { token: string };
+      token = body.token;
+    });
+
+    it('changes password with correct current password', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/change-password', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'oldpassword1', newPassword: 'newpassword1' }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json() as { token: string; username: string };
+      expect(body.username).toBe('carol');
+      expect(body.token).toBeTruthy();
+
+      // Can login with new password.
+      const loginRes = await login('carol', 'newpassword1');
+      expect(loginRes.status).toBe(200);
+    });
+
+    it('rejects with wrong current password', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/change-password', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'wrongpassword', newPassword: 'newpassword1' }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects new password that is too short', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/change-password', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'oldpassword1', newPassword: 'short' }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 401 without authentication', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'oldpassword1', newPassword: 'newpassword1' }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('old password no longer works after change', async () => {
+      await SELF.fetch('https://api.runnerup.win/auth/change-password', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'oldpassword1', newPassword: 'newpassword1' }),
+      });
+
+      const loginRes = await login('carol', 'oldpassword1');
+      expect(loginRes.status).toBe(401);
+    });
+  });
+
+  describe('delete account', () => {
+    let token: string;
+
+    beforeEach(async () => {
+      const res = await register('dave', 'davepassword1', INVITE_CODE);
+      expect(res.status).toBe(201);
+      const body = await res.json() as { token: string };
+      token = body.token;
+    });
+
+    it('deletes account with correct password', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/account', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'davepassword1' }),
+      });
+      expect(res.status).toBe(204);
+
+      // Cannot login after deletion.
+      const loginRes = await login('dave', 'davepassword1');
+      expect(loginRes.status).toBe(401);
+    });
+
+    it('rejects with wrong password', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/account', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'wrongpassword' }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 401 without authentication', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/auth/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'davepassword1' }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('deletes all user tracks on account deletion', async () => {
+      // Upload a track first.
+      const gpx = '<?xml version="1.0"?><gpx><trk><trkseg><trkpt lat="37.0" lon="-122.0"><time>2024-01-01T00:00:00Z</time></trkpt></trkseg></trk></gpx>';
+      const uploadRes = await SELF.fetch('https://api.runnerup.win/tracks', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'text/xml' },
+        body: gpx,
+      });
+      expect(uploadRes.status).toBe(201);
+
+      // Delete account.
+      const res = await SELF.fetch('https://api.runnerup.win/auth/account', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'davepassword1' }),
+      });
+      expect(res.status).toBe(204);
+
+      // Track should no longer be accessible.
+      const { id } = await uploadRes.json() as { id: string };
+      const trackRes = await SELF.fetch(`https://api.runnerup.win/tracks/${id}`);
+      expect(trackRes.status).toBe(404);
+    });
+  });
+
+  describe('settings', () => {
+    let token: string;
+
+    beforeEach(async () => {
+      const res = await register('eve', 'evepassword1', INVITE_CODE);
+      expect(res.status).toBe(201);
+      const body = await res.json() as { token: string };
+      token = body.token;
+    });
+
+    it('returns empty object when no settings exist', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/settings', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({});
+    });
+
+    it('saves and retrieves settings', async () => {
+      const putRes = await SELF.fetch('https://api.runnerup.win/settings', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ units: 'metric' }),
+      });
+      expect(putRes.status).toBe(204);
+
+      const getRes = await SELF.fetch('https://api.runnerup.win/settings', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      expect(getRes.status).toBe(200);
+      const body = await getRes.json() as { units: string };
+      expect(body.units).toBe('metric');
+    });
+
+    it('returns 401 without authentication', async () => {
+      const res = await SELF.fetch('https://api.runnerup.win/settings');
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('user isolation', () => {
     it('different users cannot see each others tracks', async () => {
       // Register two users.

@@ -165,6 +165,60 @@ async function getGPXById(storageId) {
   }
 }
 
+// Get user settings from server.
+async function apiGetSettings() {
+  const response = await apiFetch('/settings');
+  if (!response.ok) {
+    throw new Error(`Server error: ${response.status}`);
+  }
+  return await response.json();
+}
+
+// Save user settings to server.
+async function apiPutSettings(settings) {
+  const response = await apiFetch('/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  if (!response.ok) {
+    throw new Error(`Server error: ${response.status}`);
+  }
+}
+
+// Change password. Returns {token, username} on success, throws on error.
+async function apiChangePassword(currentPassword, newPassword) {
+  const response = await apiFetch('/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.error || `Change password failed: ${response.status}`);
+  }
+
+  setAuth(result.token, result.username);
+  return result;
+}
+
+// Delete account. Clears auth on success, throws on error.
+async function apiDeleteAccount(password) {
+  const response = await apiFetch('/auth/account', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+
+  if (!response.ok) {
+    const result = await response.json();
+    throw new Error(result.error || `Delete account failed: ${response.status}`);
+  }
+
+  clearAuth();
+}
+
 // Clear all stored GPX tracks (for testing).
 async function clearAllStoredGPX() {
   try {

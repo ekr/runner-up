@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RunnerUp: Compare GPX Tracks</title>
+    <title>RunnerUp: Settings</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
+    <script src="storage.js"></script>
     <script src="settings.js"></script>
     <script src="settings-page.js"></script>
 </head>
@@ -13,18 +14,58 @@
     <img src="logo.png" width="200">
   </div>
 
-  <div>
   <h2>Settings</h2>
-  <label for="units-control">Units: </label>
-  <select name="units-control" id="units-control">
-    <option value="imperial">Imperial</option>
-    <option value="metric">Metric</option>
-  </select>
+
+  <div id="settings-login-prompt" style="display: none;">
+    <p>Log in on the <a href="/">main page</a> to manage your account settings.</p>
   </div>
 
-  <div>
-    <button id="save-button">Save</button>
+  <div id="settings-content" style="display: none;">
+
+    <div class="settings-section">
+      <h3>Units</h3>
+      <label for="units-control">Display units: </label>
+      <select name="units-control" id="units-control">
+        <option value="imperial">Imperial</option>
+        <option value="metric">Metric</option>
+      </select>
+      <button id="save-button">Save</button>
+      <span id="units-success" class="settings-success"></span>
+    </div>
+
+    <div class="settings-section">
+      <h3>Change Password</h3>
+      <input type="password" id="current-password" placeholder="Current password">
+      <input type="password" id="new-password" placeholder="New password">
+      <input type="password" id="confirm-password" placeholder="Confirm new password">
+      <div class="settings-actions">
+        <button id="change-password-btn">Change Password</button>
+      </div>
+      <span id="password-error" class="auth-error"></span>
+      <span id="password-success" class="settings-success"></span>
+    </div>
+
+    <div class="settings-section">
+      <h3>My Tracks</h3>
+      <div id="track-list"></div>
+      <span id="tracks-error" class="auth-error"></span>
+    </div>
+
+    <div class="settings-section">
+      <h3>Delete Account</h3>
+      <p>This will permanently delete your account, all your tracks, and all your settings. This action cannot be undone.</p>
+      <button id="delete-account-btn" class="danger-btn">Delete My Account</button>
+      <div id="delete-confirm" style="display: none;">
+        <p>Enter your password to confirm account deletion:</p>
+        <input type="password" id="delete-password" placeholder="Password">
+        <div class="settings-actions">
+          <button id="delete-confirm-btn" class="danger-btn">Permanently Delete Account</button>
+          <button id="delete-cancel-btn">Cancel</button>
+        </div>
+        <span id="delete-error" class="auth-error"></span>
+      </div>
+    </div>
+
   </div>
 </body>
 </html>
-
