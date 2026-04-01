@@ -71,7 +71,9 @@ export async function createToken(userId: string, username: string, secret: stri
 // Verify a JWT. Returns payload or null.
 export async function verifyToken(token: string, secret: string): Promise<{ sub: string; username: string } | null> {
   try {
-    const { payload } = await jwtVerify(token, secretKey(secret));
+    const { payload } = await jwtVerify(token, secretKey(secret), {
+      algorithms: ['HS256'],
+    });
     if (!payload.sub || typeof payload.username !== 'string') return null;
     return { sub: payload.sub, username: payload.username };
   } catch {

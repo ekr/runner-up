@@ -196,11 +196,7 @@ describe('Authentication', () => {
       expect(res.status).toBe(401);
     });
 
-    it('returns 401 with an expired token', async () => {
-      // Create a token that expired in the past by using jose directly
-      // with a very short expiry. We'll create one with createToken then
-      // manipulate... Actually, we can't easily backdate. Instead, test
-      // that a tampered token is rejected.
+    it('returns 401 with a token signed by the wrong secret', async () => {
       const token = await createToken('fakeuserid', 'fakeuser', 'wrong-secret');
       const res = await SELF.fetch('https://api.runnerup.win/tracks', {
         headers: { 'Authorization': `Bearer ${token}` },
