@@ -365,14 +365,14 @@ body.settings-page {
   margin-top: 6px;
 }
 
-.danger-btn {
-  border-color: #c00 !important;
-  background: #fff !important;
+.settings-section .danger-btn {
+  border-color: #c00;
+  background: #fff;
   color: #c00;
 }
 
-.danger-btn:hover {
-  background: #c00 !important;
+.settings-section .danger-btn:hover {
+  background: #c00;
   color: #fff;
 }
 

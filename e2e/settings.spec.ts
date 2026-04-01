@@ -27,10 +27,12 @@ test.describe('Settings', () => {
       await expect(page.locator('h2')).toHaveText('Settings');
     });
 
-    test('should show back link to main page', async ({ page }) => {
+    test('should show back link that navigates to main page', async ({ page }) => {
       const backLink = page.locator(selectors.settingsBack + ' a');
       await expect(backLink).toBeVisible();
       await expect(backLink).toHaveAttribute('href', '/');
+      await backLink.click();
+      await expect(page).toHaveURL(/\/$/);
     });
   });
 
@@ -57,13 +59,6 @@ test.describe('Settings', () => {
       // Verify card styling on first section
       const border = await sections.first().evaluate(el => getComputedStyle(el).borderRadius);
       expect(border).toBe('6px');
-    });
-
-    test('should have a back link to main page', async ({ page }) => {
-      const backLink = page.locator(selectors.settingsBack + ' a');
-      await expect(backLink).toBeVisible();
-      await backLink.click();
-      await expect(page).toHaveURL(/\/$/);
     });
 
     test('should display units controls inline', async ({ page }) => {

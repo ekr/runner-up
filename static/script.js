@@ -80,7 +80,11 @@ function dataUpdated() {
   document.querySelector("#add-track").style.display =
     data.length >= 2 ? "none" : "flex";
 
-  displayTracks();
+  try {
+    displayTracks();
+  } catch (e) {
+    console.error("Error displaying tracks:", e);
+  }
 
   // Update the URL hash with current track IDs for sharing.
   updateUrlHash();
