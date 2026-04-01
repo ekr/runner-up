@@ -6,6 +6,10 @@ compatibility_date = "2024-12-01"
 binding = "GPX_BUCKET"
 bucket_name = "runnerup-gpx"
 
+[[routes]]
+pattern = "api.runnerup.win/*"
+zone_name = "runnerup.win"
+
 # Secrets (SHARE_SECRET, AUTH_SECRET, INVITE_CODE) are set via:
 #   wrangler secret put <NAME>
 # For local dev, add them to .dev.vars (gitignored).
