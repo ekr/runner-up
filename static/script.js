@@ -78,10 +78,9 @@ function dataUpdated() {
 
   displayTracks();
 
-  // Show/hide the file picker depending on how many tracks have
-  // been loaded.
+  // Show/hide the file picker depending on login state and track count.
   document.querySelector("#add-track").style.display =
-    data.length >= 2 ? "none" : "flex";
+    (data.length >= 2 || !isLoggedIn()) ? "none" : "flex";
 
   // Update the URL hash with current track IDs for sharing.
   updateUrlHash();
@@ -306,6 +305,107 @@ function removeTrack(trackIndex, permanent) {
   populateSavedTracks();
 }
 
+// Update the auth UI based on login state.
+function updateAuthUI() {
+  const loginForm = document.getElementById("auth-login-form");
+  const registerForm = document.getElementById("auth-register-form");
+  const authStatus = document.getElementById("auth-status");
+  const addTrack = document.getElementById("add-track");
+
+  if (isLoggedIn()) {
+    loginForm.style.display = "none";
+    registerForm.style.display = "none";
+    authStatus.style.display = "flex";
+    document.getElementById("auth-username-display").textContent = getUsername();
+    // Show add-track controls (unless 2 tracks already loaded).
+    if (data.length < 2) {
+      addTrack.style.display = "flex";
+    }
+  } else {
+    loginForm.style.display = "flex";
+    registerForm.style.display = "none";
+    authStatus.style.display = "none";
+    // Hide add-track controls when not logged in.
+    addTrack.style.display = "none";
+  }
+}
+
+// Set up auth event listeners.
+function setupAuthListeners() {
+  // Login button.
+  document.getElementById("auth-login-btn").addEventListener("click", async () => {
+    const username = document.getElementById("auth-username").value.trim();
+    const password = document.getElementById("auth-password").value;
+    const errorEl = document.getElementById("auth-error");
+    errorEl.textContent = "";
+
+    try {
+      await apiLogin(username, password);
+      updateAuthUI();
+      populateSavedTracks();
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+  });
+
+  // Allow Enter key in login fields.
+  for (const id of ["auth-username", "auth-password"]) {
+    document.getElementById(id).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("auth-login-btn").click();
+    });
+  }
+
+  // Show register form.
+  document.getElementById("auth-register-toggle").addEventListener("click", () => {
+    document.getElementById("auth-login-form").style.display = "none";
+    document.getElementById("auth-register-form").style.display = "flex";
+    document.getElementById("auth-error").textContent = "";
+    document.getElementById("reg-error").textContent = "";
+  });
+
+  // Back to login.
+  document.getElementById("auth-back-btn").addEventListener("click", () => {
+    document.getElementById("auth-register-form").style.display = "none";
+    document.getElementById("auth-login-form").style.display = "flex";
+    document.getElementById("reg-error").textContent = "";
+  });
+
+  // Register button.
+  document.getElementById("auth-register-btn").addEventListener("click", async () => {
+    const username = document.getElementById("reg-username").value.trim();
+    const password = document.getElementById("reg-password").value;
+    const inviteCode = document.getElementById("reg-invite").value.trim();
+    const errorEl = document.getElementById("reg-error");
+    errorEl.textContent = "";
+
+    try {
+      await apiRegister(username, password, inviteCode);
+      updateAuthUI();
+      populateSavedTracks();
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+  });
+
+  // Allow Enter key in register fields.
+  for (const id of ["reg-username", "reg-password", "reg-invite"]) {
+    document.getElementById(id).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("auth-register-btn").click();
+    });
+  }
+
+  // Logout button.
+  document.getElementById("auth-logout-btn").addEventListener("click", () => {
+    logout();
+    updateAuthUI();
+    // Clear the saved tracks dropdown since we're logged out.
+    const select = document.getElementById("saved-tracks");
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   lmap = LeafletMap();
 
@@ -314,7 +414,11 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((response) => response.text())
     .then((v) => (document.querySelector("#deploy-date").textContent = v));
 
-  // Check if URL contains shared track IDs.
+  // Set up auth UI.
+  setupAuthListeners();
+  updateAuthUI();
+
+  // Check if URL contains shared track IDs (works without login).
   const url = new URL(window.location);
   if (url.hash.length > 1) {
     loadTracksFromHash(url.hash);
@@ -322,7 +426,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   addFileListener("track");
   addSavedTrackListener();
-  populateSavedTracks();
+  if (isLoggedIn()) {
+    populateSavedTracks();
+  }
   addGraphTypeListener();
   addDisplayModeListener();
 });

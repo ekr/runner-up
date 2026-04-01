@@ -1,8 +1,11 @@
 import { handleTrackRoutes } from './handlers';
+import { handleRegister, handleLogin, extractUserId } from './auth';
 
 export interface Env {
   GPX_BUCKET: R2Bucket;
   SHARE_SECRET: string;
+  AUTH_SECRET: string;
+  INVITE_CODE: string;
 }
 
 const ALLOWED_ORIGINS = [
@@ -15,9 +18,9 @@ function corsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || isLocalhost);
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
-    'Access-Control-Expose-Headers': 'X-User-Id',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Expose-Headers': '',
     'Vary': 'Origin',
   };
 }
@@ -29,12 +32,7 @@ function jsonResponse(body: unknown, status: number, extra: Record<string, strin
   });
 }
 
-// Hash a userId to avoid storing or exposing the raw UUID in R2 keys.
-async function hashUserId(userId: string): Promise<string> {
-  const data = new TextEncoder().encode(userId);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+const VALID_TRACK_ID = /^[0-9a-f]{32}$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -49,38 +47,49 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    const VALID_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    // User ID provisioning: read from header, or generate a new one.
-    let rawUserId = request.headers.get('X-User-Id');
-    let newUser = false;
-    if (!rawUserId || !VALID_UUID.test(rawUserId)) {
-      rawUserId = crypto.randomUUID();
-      newUser = true;
-    }
-
-    // Hash the userId for internal use (R2 keys, HMAC input).
-    const userId = await hashUserId(rawUserId);
-
-    // Return the raw (unhashed) userId to the client.
-    const responseHeaders = { ...cors };
-    if (newUser) {
-      responseHeaders['X-User-Id'] = rawUserId;
-    }
-
     // Normalize trailing slash.
     const normalizedPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path;
 
     try {
-      if (normalizedPath === '/tracks' || normalizedPath.startsWith('/tracks/')) {
-        const result = await handleTrackRoutes(request, env, userId, normalizedPath);
-        return addHeaders(result, responseHeaders);
+      // Auth routes (no authentication required).
+      if (normalizedPath === '/auth/register' && request.method === 'POST') {
+        const result = await handleRegister(request, env);
+        return addHeaders(result, cors);
+      }
+      if (normalizedPath === '/auth/login' && request.method === 'POST') {
+        const result = await handleLogin(request, env);
+        return addHeaders(result, cors);
       }
 
-      return jsonResponse({ error: 'Not found' }, 404, responseHeaders);
+      // Public route: GET /tracks/{id} (capability URL, no auth needed).
+      if (request.method === 'GET' && normalizedPath.startsWith('/tracks/') && normalizedPath.length > '/tracks/'.length) {
+        const trackId = normalizedPath.slice('/tracks/'.length);
+        if (!trackId || !VALID_TRACK_ID.test(trackId)) {
+          return jsonResponse({ error: 'Invalid track ID' }, 400, cors);
+        }
+        const obj = await env.GPX_BUCKET.get(`gpx/${trackId}`);
+        if (!obj) {
+          return jsonResponse({ error: 'Not found' }, 404, cors);
+        }
+        const data = await obj.text();
+        return jsonResponse({ id: trackId, data }, 200, cors);
+      }
+
+      // All other /tracks routes require authentication.
+      if (normalizedPath === '/tracks' || normalizedPath.startsWith('/tracks/')) {
+        const auth = await extractUserId(request, env);
+        if (!auth) {
+          return jsonResponse({ error: 'Authentication required' }, 401, cors);
+        }
+
+        const result = await handleTrackRoutes(request, env, auth.userId, normalizedPath);
+        return addHeaders(result, cors);
+      }
+
+      return jsonResponse({ error: 'Not found' }, 404, cors);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Internal server error';
-      return jsonResponse({ error: message }, 500, responseHeaders);
+      console.error('Unhandled error:', err);
+      return jsonResponse({ error: 'Internal server error' }, 500, cors);
     }
   },
 } satisfies ExportedHandler<Env>;

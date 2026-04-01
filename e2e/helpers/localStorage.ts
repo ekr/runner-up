@@ -7,7 +7,7 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
   await page.evaluate(() => {
     const keys = Object.keys(localStorage);
     for (const key of keys) {
-      if (key.startsWith('setting:') || key === 'runnerup:userId') {
+      if (key.startsWith('setting:') || key.startsWith('runnerup:')) {
         localStorage.removeItem(key);
       }
     }

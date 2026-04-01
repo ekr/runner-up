@@ -16,6 +16,11 @@ interface StoredTrackData {
   meta: TrackMeta;
 }
 
+// Mock auth token for tests. In the real system this is HMAC-signed;
+// in tests we just use a fixed string that the mock recognizes.
+const TEST_AUTH_TOKEN = 'test-auth-token-for-e2e';
+const TEST_USERNAME = 'testuser';
+
 // Simulates HMAC-based track IDs. In tests we just use a hash since we
 // don't have the real SHARE_SECRET.
 function computeTestTrackId(userId: string, gpxText: string): string {
@@ -40,6 +45,13 @@ function extractGPXMetadata(gpxText: string): { date: string | null; startLat: n
   return { date, startLat, startLon };
 }
 
+// Check if a request has a valid auth token.
+function isAuthenticated(request: { headers: () => Record<string, string> }): boolean {
+  const headers = request.headers();
+  const auth = headers['authorization'] || '';
+  return auth === `Bearer ${TEST_AUTH_TOKEN}`;
+}
+
 /**
  * Set up API route mocks for the storage API.
  * Returns an object with methods to inspect/manipulate the mock state.
@@ -50,10 +62,11 @@ export async function setupApiMock(page: Page) {
   // In-memory storage for the mock.
   let tracks: StoredTrackData[] = [];
 
-  // Set the userId in localStorage so the client uses it.
-  await page.evaluate((userId) => {
-    localStorage.setItem('runnerup:userId', userId);
-  }, TEST_USER_ID);
+  // Set auth token and username in localStorage so the client is logged in.
+  await page.evaluate(({ token, username }) => {
+    localStorage.setItem('runnerup:authToken', token);
+    localStorage.setItem('runnerup:username', username);
+  }, { token: TEST_AUTH_TOKEN, username: TEST_USERNAME });
 
   await page.route(`${API_BASE}/**`, async (route) => {
     const request = route.request();
@@ -67,9 +80,8 @@ export async function setupApiMock(page: Page) {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
-          'Access-Control-Expose-Headers': 'X-User-Id',
+          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       });
       return;
@@ -77,8 +89,62 @@ export async function setupApiMock(page: Page) {
 
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'X-User-Id',
     };
+
+    // POST /auth/login — mock login
+    if (method === 'POST' && path === '/auth/login') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ token: TEST_AUTH_TOKEN, username: TEST_USERNAME }),
+      });
+      return;
+    }
+
+    // POST /auth/register — mock register
+    if (method === 'POST' && path === '/auth/register') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ token: TEST_AUTH_TOKEN, username: TEST_USERNAME }),
+      });
+      return;
+    }
+
+    // GET /tracks/{id} — public, no auth required
+    if (method === 'GET' && path.startsWith('/tracks/')) {
+      const trackId = path.slice('/tracks/'.length);
+      const track = tracks.find((t) => t.id === trackId);
+      if (track) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ id: track.id, data: track.data }),
+        });
+      } else {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+      }
+      return;
+    }
+
+    // All remaining routes require auth.
+    if (!isAuthenticated(request)) {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Authentication required' }),
+      });
+      return;
+    }
 
     // PUT /tracks
     if (method === 'PUT' && path === '/tracks') {
@@ -112,28 +178,6 @@ export async function setupApiMock(page: Page) {
         headers: corsHeaders,
         body: JSON.stringify(tracks.map((t) => t.meta)),
       });
-      return;
-    }
-
-    // GET /tracks/{id}
-    if (method === 'GET' && path.startsWith('/tracks/')) {
-      const trackId = path.slice('/tracks/'.length);
-      const track = tracks.find((t) => t.id === trackId);
-      if (track) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          headers: corsHeaders,
-          body: JSON.stringify({ id: track.id, data: track.data }),
-        });
-      } else {
-        await route.fulfill({
-          status: 404,
-          contentType: 'application/json',
-          headers: corsHeaders,
-          body: JSON.stringify({ error: 'Not found' }),
-        });
-      }
       return;
     }
 

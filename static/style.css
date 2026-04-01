@@ -1,3 +1,52 @@
+/* Auth bar */
+#auth-bar {
+    margin-bottom: 10px;
+}
+
+#auth-login-form,
+#auth-register-form,
+#auth-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#auth-bar input {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+#auth-bar button {
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+#auth-bar button:hover {
+    background: #eee;
+}
+
+.secondary-btn {
+    background: transparent !important;
+    border-color: #ddd !important;
+    color: #666;
+}
+
+#auth-username-display {
+    font-weight: bold;
+}
+
+.auth-error {
+    color: #c00;
+    font-size: 13px;
+}
+
 #map { height: 500px; width: 100%; }
 #slider-container { width: 100%; margin-top: 20px; }
 #time-slider { width: 100%; }
