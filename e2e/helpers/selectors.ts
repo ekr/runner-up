@@ -30,6 +30,11 @@ export const selectors = {
   displayModeSelect: '#display-mode-select',
   alignmentSummary: '#alignment-summary',
 
+  // Auth UI (main page)
+  authLoginForm: '#auth-login-form',
+  authStatus: '#auth-status',
+  loggedOutBanner: '#logged-out-banner',
+
   // Settings (on settings page)
   unitsDropdown: '#units-control',
   saveButton: '#save-button',
@@ -44,6 +49,9 @@ export const selectors = {
   passwordSuccess: '#password-success',
   trackList: '#track-list',
   trackItem: '.track-item',
+  settingsContainer: '.settings-container',
+  settingsBack: '.settings-back',
+  settingsSection: '.settings-section',
   deleteAccountBtn: '#delete-account-btn',
   deleteConfirm: '#delete-confirm',
   deletePassword: '#delete-password',

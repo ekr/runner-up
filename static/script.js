@@ -76,11 +76,11 @@ function dataUpdated() {
     if (display_mode) display_mode.style.display = "none";
   }
 
-  displayTracks();
-
   // Show/hide the file picker depending on track count.
   document.querySelector("#add-track").style.display =
     data.length >= 2 ? "none" : "flex";
+
+  displayTracks();
 
   // Update the URL hash with current track IDs for sharing.
   updateUrlHash();
@@ -329,21 +329,16 @@ function updateAuthUI() {
     banner.style.display = "none";
     savedTracks.style.display = "";
     document.getElementById("auth-username-display").textContent = getUsername();
-    // Show add-track controls (unless 2 tracks already loaded).
-    if (data.length < 2) {
-      addTrack.style.display = "flex";
-    }
   } else {
     loginForm.style.display = "flex";
     registerForm.style.display = "none";
     authStatus.style.display = "none";
     banner.style.display = "block";
     savedTracks.style.display = "none";
-    // Show add-track controls (unless 2 tracks already loaded).
-    if (data.length < 2) {
-      addTrack.style.display = "flex";
-    }
   }
+
+  // Always explicitly set add-track visibility based on track count.
+  addTrack.style.display = data.length < 2 ? "flex" : "none";
 }
 
 // Set up auth event listeners.
