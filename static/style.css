@@ -47,6 +47,16 @@
     font-size: 13px;
 }
 
+#logged-out-banner {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #664d03;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
 #map { height: 500px; width: 100%; }
 #slider-container { width: 100%; margin-top: 20px; }
 #time-slider { width: 100%; }

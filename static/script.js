@@ -78,9 +78,9 @@ function dataUpdated() {
 
   displayTracks();
 
-  // Show/hide the file picker depending on login state and track count.
+  // Show/hide the file picker depending on track count.
   document.querySelector("#add-track").style.display =
-    (data.length >= 2 || !isLoggedIn()) ? "none" : "flex";
+    data.length >= 2 ? "none" : "flex";
 
   // Update the URL hash with current track IDs for sharing.
   updateUrlHash();
@@ -141,10 +141,16 @@ function addFileListener(name) {
         const gpxText = e.target.result;
         const track = parseGPX(gpxText);
         data.push(track);
-        const storageId = await saveGPXToStorage(gpxText);
-        dataToStorageId.push(storageId);
+        if (isLoggedIn()) {
+          const storageId = await saveGPXToStorage(gpxText);
+          dataToStorageId.push(storageId);
+        } else {
+          dataToStorageId.push(null);
+        }
         dataUpdated();
-        populateSavedTracks();
+        if (isLoggedIn()) {
+          populateSavedTracks();
+        }
       };
       reader.readAsText(file);
     }
@@ -312,10 +318,15 @@ function updateAuthUI() {
   const authStatus = document.getElementById("auth-status");
   const addTrack = document.getElementById("add-track");
 
+  const banner = document.getElementById("logged-out-banner");
+  const savedTracks = document.getElementById("saved-tracks");
+
   if (isLoggedIn()) {
     loginForm.style.display = "none";
     registerForm.style.display = "none";
     authStatus.style.display = "flex";
+    banner.style.display = "none";
+    savedTracks.style.display = "";
     document.getElementById("auth-username-display").textContent = getUsername();
     // Show add-track controls (unless 2 tracks already loaded).
     if (data.length < 2) {
@@ -325,8 +336,12 @@ function updateAuthUI() {
     loginForm.style.display = "flex";
     registerForm.style.display = "none";
     authStatus.style.display = "none";
-    // Hide add-track controls when not logged in.
-    addTrack.style.display = "none";
+    banner.style.display = "block";
+    savedTracks.style.display = "none";
+    // Show add-track controls (unless 2 tracks already loaded).
+    if (data.length < 2) {
+      addTrack.style.display = "flex";
+    }
   }
 }
 
