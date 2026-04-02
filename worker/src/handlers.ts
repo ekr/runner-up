@@ -224,6 +224,10 @@ export async function handleTrackRoutes(
       return jsonResponse({ error: 'Invalid JSON' }, 400);
     }
 
+    if (typeof body.label !== 'string' && body.label !== null) {
+      return jsonResponse({ error: 'label must be a string or null' }, 400);
+    }
+
     const index = await readIndex(env.GPX_BUCKET, userId);
     const entry = index.find((e) => e.id === trackId);
     if (!entry) {
@@ -232,12 +236,15 @@ export async function handleTrackRoutes(
 
     if (typeof body.label === 'string') {
       const trimmed = body.label.trim();
+      if (trimmed.length > 200) {
+        return jsonResponse({ error: 'Label too long (max 200 characters)' }, 400);
+      }
       if (trimmed) {
         entry.label = trimmed;
       } else {
         delete entry.label;
       }
-    } else if (body.label === null) {
+    } else {
       delete entry.label;
     }
 
