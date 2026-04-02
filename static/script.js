@@ -7,6 +7,9 @@ let data = [];
 // Map from data index to server storage ID.
 let dataToStorageId = [];
 
+// Map from data index to whether the track is shared (not owned).
+let dataToIsShared = [];
+
 // The tracks to actually plot transformed into ready-to-plot
 // version.
 // Using var so it's accessible via window.tracks for testing.
@@ -151,6 +154,7 @@ function addFileListener(name) {
         } else {
           dataToStorageId.push(null);
         }
+        dataToIsShared.push(false);
         dataUpdated();
         if (isLoggedIn()) {
           populateSavedTracks();
@@ -217,17 +221,14 @@ async function populateSavedTracks() {
     referencePoint = { lat: data[0][0].lat, lon: data[0][0].lon };
   }
 
-  // Add server-stored tracks that aren't already displayed.
+  // Add server-stored tracks and shared tracks that aren't already displayed.
   try {
-    const stored = await getAllStoredGPX();
+    const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
 
     // Build array of track entries with metadata for sorting.
     const trackEntries = [];
     for (const entry of stored) {
-      // Skip if already displayed.
-      if (displayedIds.has(entry.id)) {
-        continue;
-      }
+      if (displayedIds.has(entry.id)) continue;
       let displayText = "Unknown date";
       if (entry.date) {
         const d = new Date(entry.date);
@@ -235,7 +236,24 @@ async function populateSavedTracks() {
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         displayText = `${date} ${time}`;
       }
-      trackEntries.push({ entry, displayText });
+      trackEntries.push({ entry, displayText, isShared: false });
+    }
+
+    for (const entry of shared) {
+      if (displayedIds.has(entry.trackId)) continue;
+      let displayText = "Unknown date";
+      if (entry.date) {
+        const d = new Date(entry.date);
+        const date = d.toDateString();
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        displayText = `${date} ${time}`;
+      }
+      displayText += ` (${entry.sharedBy})`;
+      trackEntries.push({
+        entry: { id: entry.trackId, startLat: entry.startLat, startLon: entry.startLon },
+        displayText,
+        isShared: true,
+      });
     }
 
     // Sort by proximity to displayed track's start point (closest first).
@@ -257,10 +275,11 @@ async function populateSavedTracks() {
     }
 
     // Add sorted entries to dropdown.
-    for (const { entry, displayText } of trackEntries) {
+    for (const { entry, displayText, isShared } of trackEntries) {
       const option = document.createElement("option");
       option.value = entry.id;
       option.textContent = displayText;
+      if (isShared) option.dataset.shared = "true";
       select.appendChild(option);
     }
   } catch (e) {
@@ -274,6 +293,9 @@ function addSavedTrackListener() {
   select.addEventListener("change", async (e) => {
     const storageId = e.target.value;
     if (!storageId) return;
+
+    const selectedOption = select.options[select.selectedIndex];
+    const isShared = selectedOption.dataset.shared === "true";
 
     // Reset dropdown back to placeholder.
     select.selectedIndex = 0;
@@ -292,6 +314,7 @@ function addSavedTrackListener() {
 
         data.push(track);
         dataToStorageId.push(storageId);
+        dataToIsShared.push(isShared);
         dataUpdated();
         await populateSavedTracks();
       }
@@ -302,16 +325,22 @@ function addSavedTrackListener() {
 }
 
 // Remove a track from display by its data index.
-// If permanent is true, also delete from server storage.
+// If permanent is true, also delete from server storage (or remove from shared list).
 function removeTrack(trackIndex, permanent) {
   const storageId = dataToStorageId[trackIndex];
+  const isShared = dataToIsShared[trackIndex];
 
   if (permanent && storageId) {
-    deleteGPXFromStorage(storageId);
+    if (isShared) {
+      removeSharedTrack(storageId);
+    } else {
+      deleteGPXFromStorage(storageId);
+    }
   }
 
   data.splice(trackIndex, 1);
   dataToStorageId.splice(trackIndex, 1);
+  dataToIsShared.splice(trackIndex, 1);
   dataUpdated();
   populateSavedTracks();
 }
@@ -487,6 +516,16 @@ async function loadTracksFromHash(hash) {
       const track = parseGPX(entry.data);
       data.push(track);
       dataToStorageId.push(entry.id);
+
+      // Determine if this is someone else's track.
+      const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
+      dataToIsShared.push(!!isOthers);
+
+      // If logged in, save this track to our shared tracks list.
+      // The server will skip if we already own it or have it shared.
+      if (isLoggedIn()) {
+        addSharedTrack(trackId);
+      }
     } catch (err) {
       console.error("Failed to load shared track:", trackId, err);
     }

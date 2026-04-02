@@ -219,6 +219,50 @@ async function apiDeleteAccount(password) {
   clearAuth();
 }
 
+// Save a track to the current user's shared tracks list.
+// Called automatically when viewing someone else's track via URL.
+async function addSharedTrack(trackId) {
+  try {
+    await apiFetch('/shared-tracks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackId }),
+    });
+  } catch (e) {
+    console.error('Failed to save shared track:', e);
+  }
+}
+
+// Get all tracks shared with the current user.
+// Returns [{trackId, sharedBy, date, startLat, startLon, sizeBytes}].
+async function getSharedTracks() {
+  try {
+    const response = await apiFetch('/shared-tracks');
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+    return await response.json();
+  } catch (e) {
+    console.error('Failed to read shared tracks from server:', e);
+    return [];
+  }
+}
+
+// Remove a shared track from your list (does not delete the underlying GPX).
+async function removeSharedTrack(trackId) {
+  if (!trackId) return;
+  try {
+    const response = await apiFetch(`/shared-tracks/${trackId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+  } catch (e) {
+    console.error('Failed to remove shared track:', e);
+  }
+}
+
 // Clear all stored GPX tracks (for testing).
 async function clearAllStoredGPX() {
   try {
