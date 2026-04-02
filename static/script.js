@@ -517,7 +517,10 @@ async function loadTracksFromHash(hash) {
       const track = parseGPX(entry.data);
       data.push(track);
       dataToStorageId.push(entry.id);
-      dataToIsShared.push(false);
+
+      // Determine if this is someone else's track.
+      const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
+      dataToIsShared.push(!!isOthers);
 
       // If logged in, save this track to our shared tracks list.
       // The server will skip if we already own it or have it shared.

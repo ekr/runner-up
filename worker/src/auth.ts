@@ -295,10 +295,13 @@ export async function handleDeleteAccount(request: Request, env: Env, userId: st
     return jsonResponse({ error: 'Password is incorrect' }, 401);
   }
 
-  // Delete all tracks.
+  // Delete all tracks and their metadata.
   const index = await readIndex(env.GPX_BUCKET, userId);
   const totalDeleted = index.reduce((sum, entry) => sum + ((entry as { sizeBytes?: number }).sizeBytes || 0), 0);
-  await Promise.all(index.map((entry) => env.GPX_BUCKET.delete(`gpx/${entry.id}`)));
+  await Promise.all(index.map((entry) => Promise.all([
+    env.GPX_BUCKET.delete(`gpx/${entry.id}`),
+    env.GPX_BUCKET.delete(`track-meta/${entry.id}`),
+  ])));
   await env.GPX_BUCKET.delete(`index/${userId}`);
 
   if (totalDeleted > 0) {
