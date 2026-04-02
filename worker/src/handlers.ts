@@ -19,7 +19,7 @@ export interface SharedTrackMeta {
 
 // Limits to stay within R2 free tier.
 export const MAX_TRACKS_PER_USER = 100;
-export const MAX_SHARES_PER_USER = 100;
+export const MAX_SHARES_PER_USER = 1000;
 export const MAX_TOTAL_STORAGE_BYTES = 9 * 1024 * 1024 * 1024; // 9 GB (buffer below 10 GB)
 export const MAX_MONTHLY_WRITES = 9_000_000; // 9M (buffer below 10M)
 
