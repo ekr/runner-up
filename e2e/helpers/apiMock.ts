@@ -8,6 +8,7 @@ interface TrackMeta {
   date: string | null;
   startLat: number | null;
   startLon: number | null;
+  label?: string;
 }
 
 interface StoredTrackData {
@@ -92,7 +93,7 @@ export async function setupApiMock(page: Page) {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, PATCH, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       });
@@ -377,6 +378,34 @@ export async function setupApiMock(page: Page) {
       return;
     }
 
+    // PATCH /tracks/{id} — rename track
+    if (method === 'PATCH' && path.startsWith('/tracks/') && path !== '/tracks') {
+      const trackId = path.slice('/tracks/'.length);
+      const track = tracks.find((t) => t.id === trackId);
+      if (!track) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (typeof body.label === 'string' && body.label.trim()) {
+        track.meta.label = body.label.trim();
+      } else {
+        delete track.meta.label;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+
     // DELETE /tracks/{id}
     if (method === 'DELETE' && path.startsWith('/tracks/') && path !== '/tracks') {
       const trackId = path.slice('/tracks/'.length);
@@ -426,6 +455,17 @@ export async function setupApiMock(page: Page) {
       }
     },
     getTrackId: (gpxText: string) => computeTestTrackId(TEST_USER_ID, gpxText),
+    setTrackLabel: (gpxText: string, label: string) => {
+      const trackId = computeTestTrackId(TEST_USER_ID, gpxText);
+      const track = tracks.find((t) => t.id === trackId);
+      if (track) {
+        if (label) {
+          track.meta.label = label;
+        } else {
+          delete track.meta.label;
+        }
+      }
+    },
     getSettings: () => ({ ...settings }),
     setPassword: (pw: string) => { currentPassword = pw; },
     seedSharedTracks: (entries: SharedTrackMeta[]) => {

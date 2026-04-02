@@ -46,7 +46,7 @@ function LeafletMap() {
     }
   }
 
-  function createLegend(tracks, storageIds) {
+  function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels) {
     const legendContainer = document.getElementById("legend-container");
     clearChildren(legendContainer);
     for (let i in tracks) {
@@ -54,9 +54,44 @@ function LeafletMap() {
 
       const legendLine = document.getElementById("legend-line");
       const clone = legendLine.content.cloneNode(true);
-      clone.querySelector("#legend-text").textContent = getStartDate(track);
+      const legendText = clone.querySelector("#legend-text");
+      legendText.textContent = displayNames ? displayNames[i] : getStartDate(track);
+      legendText.title = dateStrings ? dateStrings[i] : getStartDate(track);
       clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
       let trackId = i;
+
+      // Inline rename on click (only for own tracks with a storage ID).
+      const canRename = storageIds && storageIds[i] && isSharedArr && !isSharedArr[i];
+      if (canRename) {
+        legendText.style.cursor = "pointer";
+        legendText.addEventListener("click", () => {
+          const currentLabel = labels ? labels[i] : null;
+          const input = document.createElement("input");
+          input.type = "text";
+          input.value = currentLabel || "";
+          input.placeholder = dateStrings ? dateStrings[i] : getStartDate(track);
+          input.style.cssText = "font-size: inherit; width: 160px; padding: 1px 4px; border: 1px solid #999; border-radius: 3px;";
+
+          const commitRename = () => {
+            const newLabel = input.value.trim();
+            input.replaceWith(legendText);
+            renameTrack(parseInt(trackId), newLabel || null);
+          };
+
+          input.addEventListener("blur", commitRename);
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") input.blur();
+            if (e.key === "Escape") {
+              input.removeEventListener("blur", commitRename);
+              input.replaceWith(legendText);
+            }
+          });
+
+          legendText.replaceWith(input);
+          input.focus();
+          input.select();
+        });
+      }
 
       clone.querySelector(".delete-button").addEventListener("click", (e) => {
         if (e.shiftKey) {

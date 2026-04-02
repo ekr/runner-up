@@ -263,6 +263,23 @@ async function removeSharedTrack(trackId) {
   }
 }
 
+// Rename a track (set or clear its label).
+async function apiRenameTrack(storageId, label) {
+  if (!storageId) return;
+  try {
+    const response = await apiFetch(`/tracks/${storageId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label || null }),
+    });
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+  } catch (e) {
+    console.error('Failed to rename track:', e);
+  }
+}
+
 // Clear all stored GPX tracks (for testing).
 async function clearAllStoredGPX() {
   try {

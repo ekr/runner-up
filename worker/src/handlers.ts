@@ -6,6 +6,7 @@ interface TrackMeta {
   startLat: number | null;
   startLon: number | null;
   sizeBytes: number;
+  label?: string;
 }
 
 export interface SharedTrackMeta {
@@ -208,6 +209,41 @@ export async function handleTrackRoutes(
   }
 
   // Note: GET /tracks/{id} is handled in index.ts as a public route (no auth needed).
+
+  // PATCH /tracks/{id} — update track metadata (e.g., label).
+  if (request.method === 'PATCH' && path.startsWith('/tracks/') && path.length > '/tracks/'.length) {
+    const trackId = path.slice('/tracks/'.length);
+    if (!VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
+
+    let body: { label?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400);
+    }
+
+    const index = await readIndex(env.GPX_BUCKET, userId);
+    const entry = index.find((e) => e.id === trackId);
+    if (!entry) {
+      return jsonResponse({ error: 'Not found' }, 404);
+    }
+
+    if (typeof body.label === 'string') {
+      const trimmed = body.label.trim();
+      if (trimmed) {
+        entry.label = trimmed;
+      } else {
+        delete entry.label;
+      }
+    } else if (body.label === null) {
+      delete entry.label;
+    }
+
+    await writeIndex(env.GPX_BUCKET, userId, index);
+    return jsonResponse({ ok: true }, 200);
+  }
 
   // DELETE /tracks/{id} — delete a single track.
   if (request.method === 'DELETE' && path.startsWith('/tracks/') && path.length > '/tracks/'.length) {

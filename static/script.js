@@ -10,6 +10,12 @@ let dataToStorageId = [];
 // Map from data index to whether the track is shared (not owned).
 let dataToIsShared = [];
 
+// Map from data index to the username who shared the track (null for own tracks).
+let dataToSharedBy = [];
+
+// Map from data index to the custom label (null if not set).
+let dataToLabel = [];
+
 // The tracks to actually plot transformed into ready-to-plot
 // version.
 // Using var so it's accessible via window.tracks for testing.
@@ -33,6 +39,17 @@ let displayMode = 'full';
 
 // The map object.
 let lmap = undefined;
+
+// Get the display name for a track by index.
+// Uses custom label if set, otherwise falls back to date.
+// Appends (sharedBy) for shared tracks.
+function getTrackDisplayName(index) {
+  const track = data[index];
+  const label = dataToLabel[index];
+  const base = label || getStartDate(track);
+  const sharedBy = dataToSharedBy[index];
+  return sharedBy ? `${base} (${sharedBy})` : base;
+}
 
 // The data has been updated, so we need to basically
 // start from scratch.
@@ -129,7 +146,9 @@ function displayTracks() {
 
     lmap.drawTrack(track);
   }
-  lmap.createLegend(tracks, dataToStorageId);
+  const displayNames = data.map((_, i) => getTrackDisplayName(i));
+  const dateStrings = data.map((_, i) => getStartDate(data[i]));
+  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel);
   initializeSlider();
   updateMarkers();
 }
@@ -155,6 +174,8 @@ function addFileListener(name) {
           dataToStorageId.push(null);
         }
         dataToIsShared.push(false);
+        dataToSharedBy.push(null);
+        dataToLabel.push(null);
         dataUpdated();
         if (isLoggedIn()) {
           populateSavedTracks();
@@ -229,30 +250,38 @@ async function populateSavedTracks() {
     const trackEntries = [];
     for (const entry of stored) {
       if (displayedIds.has(entry.id)) continue;
-      let displayText = "Unknown date";
-      if (entry.date) {
+      let displayText;
+      if (entry.label) {
+        displayText = entry.label;
+      } else if (entry.date) {
         const d = new Date(entry.date);
         const date = d.toDateString();
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         displayText = `${date} ${time}`;
+      } else {
+        displayText = "Unknown date";
       }
-      trackEntries.push({ entry, displayText, isShared: false });
+      trackEntries.push({ entry, displayText, isShared: false, sharedBy: null, label: entry.label || null });
     }
 
     for (const entry of shared) {
       if (displayedIds.has(entry.trackId)) continue;
-      let displayText = "Unknown date";
+      let displayText;
       if (entry.date) {
         const d = new Date(entry.date);
         const date = d.toDateString();
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         displayText = `${date} ${time}`;
+      } else {
+        displayText = "Unknown date";
       }
       displayText += ` (${entry.sharedBy})`;
       trackEntries.push({
         entry: { id: entry.trackId, startLat: entry.startLat, startLon: entry.startLon },
         displayText,
         isShared: true,
+        sharedBy: entry.sharedBy,
+        label: null,
       });
     }
 
@@ -275,11 +304,13 @@ async function populateSavedTracks() {
     }
 
     // Add sorted entries to dropdown.
-    for (const { entry, displayText, isShared } of trackEntries) {
+    for (const { entry, displayText, isShared, sharedBy, label } of trackEntries) {
       const option = document.createElement("option");
       option.value = entry.id;
       option.textContent = displayText;
       if (isShared) option.dataset.shared = "true";
+      if (sharedBy) option.dataset.sharedBy = sharedBy;
+      if (label) option.dataset.label = label;
       select.appendChild(option);
     }
   } catch (e) {
@@ -296,6 +327,8 @@ function addSavedTrackListener() {
 
     const selectedOption = select.options[select.selectedIndex];
     const isShared = selectedOption.dataset.shared === "true";
+    const sharedBy = selectedOption.dataset.sharedBy || null;
+    const label = selectedOption.dataset.label || null;
 
     // Reset dropdown back to placeholder.
     select.selectedIndex = 0;
@@ -315,6 +348,8 @@ function addSavedTrackListener() {
         data.push(track);
         dataToStorageId.push(storageId);
         dataToIsShared.push(isShared);
+        dataToSharedBy.push(sharedBy);
+        dataToLabel.push(label);
         dataUpdated();
         await populateSavedTracks();
       }
@@ -341,8 +376,21 @@ function removeTrack(trackIndex, permanent) {
   data.splice(trackIndex, 1);
   dataToStorageId.splice(trackIndex, 1);
   dataToIsShared.splice(trackIndex, 1);
+  dataToSharedBy.splice(trackIndex, 1);
+  dataToLabel.splice(trackIndex, 1);
   dataUpdated();
   populateSavedTracks();
+}
+
+// Rename a track and refresh the display.
+async function renameTrack(trackIndex, newLabel) {
+  const storageId = dataToStorageId[trackIndex];
+  const trimmed = newLabel ? newLabel.trim() : null;
+  dataToLabel[trackIndex] = trimmed || null;
+  if (storageId && isLoggedIn() && !dataToIsShared[trackIndex]) {
+    await apiRenameTrack(storageId, trimmed);
+  }
+  displayTracks();
 }
 
 // Update the auth UI based on login state.
@@ -520,6 +568,8 @@ async function loadTracksFromHash(hash) {
       // Determine if this is someone else's track.
       const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
       dataToIsShared.push(!!isOthers);
+      dataToSharedBy.push(isOthers ? entry.owner : null);
+      dataToLabel.push(null);
 
       // If logged in, save this track to our shared tracks list.
       // The server will skip if we already own it or have it shared.

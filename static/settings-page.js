@@ -99,11 +99,68 @@ document.addEventListener("DOMContentLoaded", async () => {
         const info = document.createElement("div");
         info.className = "track-item-info";
 
-        const date = document.createElement("span");
-        date.className = "track-item-date";
-        date.textContent = track.date
+        const nameRow = document.createElement("div");
+        nameRow.className = "track-item-name-row";
+
+        const dateStr = track.date
           ? new Date(track.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
           : "Unknown date";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "track-item-date";
+        nameSpan.textContent = track.label || dateStr;
+
+        const renameBtn = document.createElement("button");
+        renameBtn.className = "rename-button";
+        renameBtn.textContent = "\u270E";
+        renameBtn.title = "Rename track";
+        renameBtn.addEventListener("click", () => {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.className = "track-rename-input";
+          input.value = track.label || "";
+          input.placeholder = dateStr;
+
+          const commitRename = async () => {
+            const newLabel = input.value.trim();
+            track.label = newLabel || undefined;
+            nameSpan.textContent = newLabel || dateStr;
+            input.replaceWith(nameSpan);
+            renameBtn.style.display = "";
+            // Rebuild details to include/exclude date
+            const parts = [];
+            if (track.sizeBytes) parts.push(formatBytes(track.sizeBytes));
+            if (track.startLat != null && track.startLon != null) {
+              parts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
+            }
+            if (newLabel && track.date) parts.push(dateStr);
+            details.textContent = parts.join(" \u00B7 ");
+            if (parts.length > 0) {
+              if (!details.parentNode) info.appendChild(details);
+            } else {
+              details.remove();
+            }
+            await apiRenameTrack(track.id, newLabel || null);
+          };
+
+          input.addEventListener("blur", commitRename);
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") input.blur();
+            if (e.key === "Escape") {
+              input.removeEventListener("blur", commitRename);
+              input.replaceWith(nameSpan);
+              renameBtn.style.display = "";
+            }
+          });
+
+          nameSpan.replaceWith(input);
+          renameBtn.style.display = "none";
+          input.focus();
+          input.select();
+        });
+
+        nameRow.appendChild(nameSpan);
+        nameRow.appendChild(renameBtn);
 
         const details = document.createElement("span");
         details.className = "track-item-details";
@@ -114,11 +171,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (track.startLat != null && track.startLon != null) {
           sizeParts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
         }
+        if (track.label && track.date) {
+          sizeParts.push(dateStr);
+        }
         details.textContent = sizeParts.join(" \u00B7 ");
 
-        info.appendChild(date);
+        info.appendChild(nameRow);
         if (sizeParts.length > 0) {
-          info.appendChild(document.createTextNode(" \u2014 "));
           info.appendChild(details);
         }
 
