@@ -16,6 +16,15 @@ interface StoredTrackData {
   meta: TrackMeta;
 }
 
+interface SharedTrackMeta {
+  trackId: string;
+  sharedBy: string;
+  date: string | null;
+  startLat: number | null;
+  startLon: number | null;
+  sizeBytes: number;
+}
+
 // Mock auth token for tests. In the real system this is HMAC-signed;
 // in tests we just use a fixed string that the mock recognizes.
 const TEST_AUTH_TOKEN = 'test-auth-token-for-e2e';
@@ -61,6 +70,7 @@ export async function setupApiMock(page: Page) {
 
   // In-memory storage for the mock.
   let tracks: StoredTrackData[] = [];
+  let sharedTracks: SharedTrackMeta[] = [];
   let settings: Record<string, unknown> = {};
   let currentPassword = 'testpassword';
 
@@ -177,6 +187,7 @@ export async function setupApiMock(page: Page) {
         return;
       }
       tracks = [];
+      sharedTracks = [];
       settings = {};
       await route.fulfill({
         status: 204,
@@ -224,6 +235,80 @@ export async function setupApiMock(page: Page) {
       return;
     }
 
+    // GET /shared-tracks — list shared tracks (authenticated)
+    if (method === 'GET' && path === '/shared-tracks') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify(sharedTracks),
+      });
+      return;
+    }
+
+    // DELETE /shared-tracks/{id} — remove shared track (authenticated)
+    if (method === 'DELETE' && path.startsWith('/shared-tracks/')) {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const trackId = path.slice('/shared-tracks/'.length);
+      const before = sharedTracks.length;
+      sharedTracks = sharedTracks.filter((s) => s.trackId !== trackId);
+      await route.fulfill({
+        status: before !== sharedTracks.length ? 204 : 404,
+        headers: corsHeaders,
+      });
+      return;
+    }
+
+    // POST /shared-tracks — save a track to shared list (authenticated)
+    if (method === 'POST' && path === '/shared-tracks') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      const trackId = body.trackId;
+      // Skip if already in shared list.
+      if (!sharedTracks.some((s) => s.trackId === trackId)) {
+        sharedTracks.push({
+          trackId,
+          sharedBy: 'someone',
+          date: null,
+          startLat: null,
+          startLon: null,
+          sizeBytes: 0,
+        });
+      }
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+
     // GET /tracks/{id} — public, no auth required
     if (method === 'GET' && path.startsWith('/tracks/')) {
       const trackId = path.slice('/tracks/'.length);
@@ -233,7 +318,7 @@ export async function setupApiMock(page: Page) {
           status: 200,
           contentType: 'application/json',
           headers: corsHeaders,
-          body: JSON.stringify({ id: track.id, data: track.data }),
+          body: JSON.stringify({ id: track.id, data: track.data, owner: TEST_USERNAME }),
         });
       } else {
         await route.fulfill({
@@ -343,5 +428,9 @@ export async function setupApiMock(page: Page) {
     getTrackId: (gpxText: string) => computeTestTrackId(TEST_USER_ID, gpxText),
     getSettings: () => ({ ...settings }),
     setPassword: (pw: string) => { currentPassword = pw; },
+    seedSharedTracks: (entries: SharedTrackMeta[]) => {
+      sharedTracks.push(...entries);
+    },
+    getSharedTrackCount: () => sharedTracks.length,
   };
 }

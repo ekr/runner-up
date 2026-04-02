@@ -8,8 +8,18 @@ interface TrackMeta {
   sizeBytes: number;
 }
 
+export interface SharedTrackMeta {
+  trackId: string;
+  sharedBy: string;
+  date: string | null;
+  startLat: number | null;
+  startLon: number | null;
+  sizeBytes: number;
+}
+
 // Limits to stay within R2 free tier.
 export const MAX_TRACKS_PER_USER = 100;
+export const MAX_SHARES_PER_USER = 100;
 export const MAX_TOTAL_STORAGE_BYTES = 9 * 1024 * 1024 * 1024; // 9 GB (buffer below 10 GB)
 export const MAX_MONTHLY_WRITES = 9_000_000; // 9M (buffer below 10M)
 
@@ -75,6 +85,40 @@ async function writeIndex(bucket: R2Bucket, userId: string, index: TrackMeta[]):
   await bucket.put(`index/${userId}`, JSON.stringify(index));
 }
 
+// Read the per-user shared tracks list from R2.
+export async function readShares(bucket: R2Bucket, userId: string): Promise<SharedTrackMeta[]> {
+  const obj = await bucket.get(`shares/${userId}`);
+  if (!obj) return [];
+  const text = await obj.text();
+  return JSON.parse(text);
+}
+
+// Write the per-user shared tracks list to R2.
+async function writeShares(bucket: R2Bucket, userId: string, shares: SharedTrackMeta[]): Promise<void> {
+  await bucket.put(`shares/${userId}`, JSON.stringify(shares));
+}
+
+// Track metadata stored per-track for sharing (owner info + metadata).
+interface TrackOwnerMeta {
+  owner: string; // username of the uploader
+  date: string | null;
+  startLat: number | null;
+  startLon: number | null;
+  sizeBytes: number;
+}
+
+// Read track owner metadata from R2.
+export async function readTrackMeta(bucket: R2Bucket, trackId: string): Promise<TrackOwnerMeta | null> {
+  const obj = await bucket.get(`track-meta/${trackId}`);
+  if (!obj) return null;
+  return JSON.parse(await obj.text());
+}
+
+// Write track owner metadata to R2.
+async function writeTrackMeta(bucket: R2Bucket, trackId: string, meta: TrackOwnerMeta): Promise<void> {
+  await bucket.put(`track-meta/${trackId}`, JSON.stringify(meta));
+}
+
 // Read global usage stats from R2.
 export async function readStats(bucket: R2Bucket): Promise<GlobalStats> {
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -101,6 +145,7 @@ export async function handleTrackRoutes(
   request: Request,
   env: Env,
   userId: string,
+  username: string,
   path: string,
 ): Promise<Response> {
   // PUT /tracks — upload a new GPX track.
@@ -146,6 +191,13 @@ export async function handleTrackRoutes(
     index.push({ id: trackId, ...meta, sizeBytes: bodyBytes });
     await writeIndex(env.GPX_BUCKET, userId, index);
 
+    // Store track owner metadata for sharing.
+    await writeTrackMeta(env.GPX_BUCKET, trackId, {
+      owner: username,
+      ...meta,
+      sizeBytes: bodyBytes,
+    });
+
     return jsonResponse({ id: trackId }, 201);
   }
 
@@ -173,6 +225,7 @@ export async function handleTrackRoutes(
 
     const newIndex = index.filter((entry) => entry.id !== trackId);
     await env.GPX_BUCKET.delete(`gpx/${trackId}`);
+    await env.GPX_BUCKET.delete(`track-meta/${trackId}`);
     await writeIndex(env.GPX_BUCKET, userId, newIndex);
 
     if (deleted.sizeBytes > 0) {
@@ -190,8 +243,11 @@ export async function handleTrackRoutes(
 
     const totalDeleted = index.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
 
-    // Delete all GPX objects.
-    await Promise.all(index.map((entry) => env.GPX_BUCKET.delete(`gpx/${entry.id}`)));
+    // Delete all GPX objects and their metadata.
+    await Promise.all(index.map((entry) => Promise.all([
+      env.GPX_BUCKET.delete(`gpx/${entry.id}`),
+      env.GPX_BUCKET.delete(`track-meta/${entry.id}`),
+    ])));
 
     // Delete the index.
     await env.GPX_BUCKET.delete(`index/${userId}`);
@@ -202,6 +258,88 @@ export async function handleTrackRoutes(
       await writeStats(env.GPX_BUCKET, stats);
     }
 
+    return new Response(null, { status: 204 });
+  }
+
+  return jsonResponse({ error: 'Method not allowed' }, 405);
+}
+
+export async function handleSharedTrackRoutes(
+  request: Request,
+  env: Env,
+  userId: string,
+  path: string,
+): Promise<Response> {
+  // POST /shared-tracks — save a track to your shared list.
+  // Called automatically when a logged-in user views someone else's track via URL.
+  if (request.method === 'POST' && path === '/shared-tracks') {
+    let body: { trackId?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400);
+    }
+
+    const { trackId } = body;
+    if (!trackId || !VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
+
+    // Read track owner metadata.
+    const trackMeta = await readTrackMeta(env.GPX_BUCKET, trackId);
+    if (!trackMeta) {
+      return jsonResponse({ error: 'Track not found' }, 404);
+    }
+
+    // Skip if user already owns this track.
+    const index = await readIndex(env.GPX_BUCKET, userId);
+    if (index.some((entry) => entry.id === trackId)) {
+      return jsonResponse({ ok: true }, 200);
+    }
+
+    // Skip if already in shares.
+    const shares = await readShares(env.GPX_BUCKET, userId);
+    if (shares.some((s) => s.trackId === trackId)) {
+      return jsonResponse({ ok: true }, 200);
+    }
+
+    if (shares.length >= MAX_SHARES_PER_USER) {
+      return jsonResponse({ error: 'Share limit reached' }, 429);
+    }
+
+    shares.push({
+      trackId,
+      sharedBy: trackMeta.owner,
+      date: trackMeta.date,
+      startLat: trackMeta.startLat,
+      startLon: trackMeta.startLon,
+      sizeBytes: trackMeta.sizeBytes,
+    });
+    await writeShares(env.GPX_BUCKET, userId, shares);
+
+    return jsonResponse({ ok: true }, 201);
+  }
+
+  // GET /shared-tracks — list tracks shared with the current user.
+  if (request.method === 'GET' && path === '/shared-tracks') {
+    const shares = await readShares(env.GPX_BUCKET, userId);
+    return jsonResponse(shares, 200);
+  }
+
+  // DELETE /shared-tracks/{id} — remove a shared track from your list.
+  if (request.method === 'DELETE' && path.startsWith('/shared-tracks/') && path.length > '/shared-tracks/'.length) {
+    const trackId = path.slice('/shared-tracks/'.length);
+    if (!VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
+
+    const shares = await readShares(env.GPX_BUCKET, userId);
+    const newShares = shares.filter((s) => s.trackId !== trackId);
+    if (newShares.length === shares.length) {
+      return jsonResponse({ error: 'Not found' }, 404);
+    }
+
+    await writeShares(env.GPX_BUCKET, userId, newShares);
     return new Response(null, { status: 204 });
   }
 

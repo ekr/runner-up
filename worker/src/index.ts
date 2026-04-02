@@ -1,4 +1,4 @@
-import { handleTrackRoutes, handleSettingsRoutes } from './handlers';
+import { handleTrackRoutes, handleSharedTrackRoutes, handleSettingsRoutes, readTrackMeta } from './handlers';
 import { handleRegister, handleLogin, handleChangePassword, handleDeleteAccount, extractUserId } from './auth';
 
 export interface Env {
@@ -83,7 +83,16 @@ export default {
         return addHeaders(result, cors);
       }
 
+      // Shared tracks routes (authenticated).
+      if (normalizedPath === '/shared-tracks' || normalizedPath.startsWith('/shared-tracks/')) {
+        const auth = await extractUserId(request, env);
+        if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
+        const result = await handleSharedTrackRoutes(request, env, auth.userId, normalizedPath);
+        return addHeaders(result, cors);
+      }
+
       // Public route: GET /tracks/{id} (capability URL, no auth needed).
+      // But not POST /tracks/{id}/share which requires auth.
       if (request.method === 'GET' && normalizedPath.startsWith('/tracks/') && normalizedPath.length > '/tracks/'.length) {
         const trackId = normalizedPath.slice('/tracks/'.length);
         if (!trackId || !VALID_TRACK_ID.test(trackId)) {
@@ -93,8 +102,11 @@ export default {
         if (!obj) {
           return jsonResponse({ error: 'Not found' }, 404, cors);
         }
-        const data = await obj.text();
-        return jsonResponse({ id: trackId, data }, 200, cors);
+        const [data, trackMeta] = await Promise.all([
+          obj.text(),
+          readTrackMeta(env.GPX_BUCKET, trackId),
+        ]);
+        return jsonResponse({ id: trackId, data, owner: trackMeta?.owner ?? null }, 200, cors);
       }
 
       // All other /tracks routes require authentication.
@@ -104,7 +116,7 @@ export default {
           return jsonResponse({ error: 'Authentication required' }, 401, cors);
         }
 
-        const result = await handleTrackRoutes(request, env, auth.userId, normalizedPath);
+        const result = await handleTrackRoutes(request, env, auth.userId, auth.username, normalizedPath);
         return addHeaders(result, cors);
       }
 

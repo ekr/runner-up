@@ -307,8 +307,9 @@ export async function handleDeleteAccount(request: Request, env: Env, userId: st
     await writeStats(env.GPX_BUCKET, stats);
   }
 
-  // Delete settings and user record.
+  // Delete settings, shares, and user record.
   await env.GPX_BUCKET.delete(`settings/${userId}`);
+  await env.GPX_BUCKET.delete(`shares/${userId}`);
   await env.GPX_BUCKET.delete(`user/${username}`);
 
   return new Response(null, { status: 204 });
