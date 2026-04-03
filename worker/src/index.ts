@@ -76,7 +76,7 @@ export default {
       }
 
       // Avatar routes (authenticated PUT/DELETE).
-      if (normalizedPath === '/avatar') {
+      if ((request.method === 'PUT' || request.method === 'DELETE') && normalizedPath === '/avatar') {
         const auth = await extractUserId(request, env);
         if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
         const result = await handleAvatarRoutes(request, env, auth.userId);
@@ -86,7 +86,9 @@ export default {
       // Public route: GET /avatar/{username}
       if (request.method === 'GET' && normalizedPath.startsWith('/avatar/')) {
         const username = normalizedPath.slice('/avatar/'.length);
-        if (!username) return jsonResponse({ error: 'Not found' }, 404, cors);
+        if (!username || !/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(username)) {
+          return jsonResponse({ error: 'Not found' }, 404, cors);
+        }
         const result = await handleAvatarGet(env, username);
         return addHeaders(result, cors);
       }
