@@ -409,9 +409,7 @@ function updateAuthUI() {
   const banner = document.getElementById("logged-out-banner");
   const savedTracks = document.getElementById("saved-tracks");
 
-  const headerAvatar = document.getElementById("header-avatar");
   const headerAvatarImg = document.getElementById("header-avatar-img");
-  const headerAvatarUsername = document.getElementById("header-avatar-username");
 
   if (isLoggedIn()) {
     loginForm.style.display = "none";
@@ -422,9 +420,7 @@ function updateAuthUI() {
     const username = getUsername();
     document.getElementById("auth-username-display").textContent = username;
 
-    // Show avatar in header.
-    headerAvatar.style.display = "flex";
-    headerAvatarUsername.textContent = username;
+    // Load avatar into header.
     const img = new Image();
     img.onload = () => {
       headerAvatarImg.src = avatarUrl(username) + "?t=" + Date.now();
@@ -440,7 +436,6 @@ function updateAuthUI() {
     authStatus.style.display = "none";
     banner.style.display = "block";
     savedTracks.style.display = "none";
-    headerAvatar.style.display = "none";
     headerAvatarImg.classList.remove("loaded");
   }
 

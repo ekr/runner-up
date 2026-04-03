@@ -11,9 +11,10 @@
 </head>
 <body>
   <div class="logo-container">
-    <div id="header-avatar" class="header-avatar" style="display: none;">
+    <div id="auth-status" style="display: none;">
       <img id="header-avatar-img" class="header-avatar-img" alt="Avatar">
-      <span id="header-avatar-username"></span>
+      <span id="auth-username-display"></span>
+      <button id="auth-logout-btn" class="secondary-btn">Logout</button>
     </div>
     <img src="logo.png" width="200">
   </div>
@@ -32,10 +33,6 @@
       <button id="auth-register-btn">Register</button>
       <button id="auth-back-btn" class="secondary-btn">Back</button>
       <span id="reg-error" class="auth-error"></span>
-    </div>
-    <div id="auth-status" style="display: none;">
-      <span id="auth-username-display"></span>
-      <button id="auth-logout-btn" class="secondary-btn">Logout</button>
     </div>
   </div>
   <div id="logged-out-banner" style="display: none;">Not logged in. Tracks will not be stored or shareable.</div>
