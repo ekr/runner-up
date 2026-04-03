@@ -410,6 +410,7 @@ function updateAuthUI() {
   const savedTracks = document.getElementById("saved-tracks");
 
   const headerAvatarImg = document.getElementById("header-avatar-img");
+  const headerAvatarPlaceholder = document.getElementById("header-avatar-placeholder");
 
   if (isLoggedIn()) {
     loginForm.style.display = "none";
@@ -420,16 +421,17 @@ function updateAuthUI() {
     const username = getUsername();
     document.getElementById("auth-username-display").textContent = username;
 
-    // Load avatar into header.
-    const img = new Image();
-    img.onload = () => {
-      headerAvatarImg.src = avatarUrl(username) + "?t=" + Date.now();
+    // Show placeholder initial.
+    headerAvatarPlaceholder.textContent = username.charAt(0);
+
+    // Try to load avatar.
+    headerAvatarImg.onload = () => {
       headerAvatarImg.classList.add("loaded");
     };
-    img.onerror = () => {
+    headerAvatarImg.onerror = () => {
       headerAvatarImg.classList.remove("loaded");
     };
-    img.src = avatarUrl(username);
+    headerAvatarImg.src = avatarUrl(username) + "?t=" + Date.now();
   } else {
     loginForm.style.display = "flex";
     registerForm.style.display = "none";

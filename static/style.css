@@ -104,16 +104,39 @@ body {
     margin-left: auto;
 }
 
-.header-avatar-img {
+.header-avatar-wrap {
     width: 36px;
     height: 36px;
     border-radius: 50%;
+    overflow: hidden;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.header-avatar-img {
+    width: 36px;
+    height: 36px;
     object-fit: cover;
     display: none;
 }
 
 .header-avatar-img.loaded {
     display: block;
+}
+
+.header-avatar-placeholder {
+    font-size: 16px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.header-avatar-img.loaded + .header-avatar-placeholder {
+    display: none;
 }
 
 #map-container {
