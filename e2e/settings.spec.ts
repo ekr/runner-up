@@ -22,7 +22,7 @@ test.describe('Settings', () => {
 
     test('should navigate to settings from main page', async ({ page }) => {
       await page.goto('/');
-      await page.click('a[href="/settings.html"]');
+      await page.click('#settings a[href="/settings.html"]');
       await expect(page).toHaveURL(/settings\.html/);
       await expect(page.locator('h2')).toHaveText('Settings');
     });
