@@ -462,3 +462,57 @@ export async function handleSettingsRoutes(
 
   return jsonResponse({ error: 'Method not allowed' }, 405);
 }
+
+const MAX_AVATAR_BYTES = 1_048_576; // 1 MB
+const VALID_AVATAR_TYPES = ['image/png', 'image/jpeg'];
+
+export async function handleAvatarRoutes(
+  request: Request,
+  env: Env,
+  username: string,
+): Promise<Response> {
+  // PUT /avatar — upload avatar.
+  if (request.method === 'PUT') {
+    const contentType = request.headers.get('Content-Type') || '';
+    if (!VALID_AVATAR_TYPES.includes(contentType)) {
+      return jsonResponse({ error: 'Content-Type must be image/png or image/jpeg' }, 400);
+    }
+    const body = await request.arrayBuffer();
+    if (body.byteLength === 0) {
+      return jsonResponse({ error: 'Empty body' }, 400);
+    }
+    if (body.byteLength > MAX_AVATAR_BYTES) {
+      return jsonResponse({ error: 'Avatar too large (max 1MB)' }, 413);
+    }
+    await env.GPX_BUCKET.put(`avatar/${username}`, body, {
+      httpMetadata: { contentType },
+    });
+    return new Response(null, { status: 204 });
+  }
+
+  // DELETE /avatar — remove avatar.
+  if (request.method === 'DELETE') {
+    await env.GPX_BUCKET.delete(`avatar/${username}`);
+    return new Response(null, { status: 204 });
+  }
+
+  return jsonResponse({ error: 'Method not allowed' }, 405);
+}
+
+export async function handleAvatarGet(
+  env: Env,
+  username: string,
+): Promise<Response> {
+  const obj = await env.GPX_BUCKET.get(`avatar/${username}`);
+  if (!obj) {
+    return jsonResponse({ error: 'Not found' }, 404);
+  }
+  const contentType = obj.httpMetadata?.contentType || 'image/png';
+  return new Response(obj.body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
+}

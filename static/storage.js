@@ -297,6 +297,33 @@ async function apiRenameSharedTrack(trackId, label) {
   }
 }
 
+// Upload avatar (binary). imageBlob should be a Blob (PNG/JPEG, already resized).
+async function apiUploadAvatar(imageBlob) {
+  const response = await apiFetch('/avatar', {
+    method: 'PUT',
+    headers: { 'Content-Type': imageBlob.type },
+    body: imageBlob,
+  });
+  if (!response.ok) {
+    const result = await response.json();
+    throw new Error(result.error || `Upload failed: ${response.status}`);
+  }
+}
+
+// Delete avatar.
+async function apiDeleteAvatar() {
+  const response = await apiFetch('/avatar', { method: 'DELETE' });
+  if (!response.ok) {
+    const result = await response.json();
+    throw new Error(result.error || `Delete failed: ${response.status}`);
+  }
+}
+
+// Get avatar URL for a username.
+function avatarUrl(username) {
+  return `${API_BASE}/avatar/${encodeURIComponent(username)}`;
+}
+
 // Clear all stored GPX tracks (for testing).
 async function clearAllStoredGPX() {
   try {

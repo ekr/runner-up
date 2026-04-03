@@ -409,19 +409,36 @@ function updateAuthUI() {
   const banner = document.getElementById("logged-out-banner");
   const savedTracks = document.getElementById("saved-tracks");
 
+  const headerAvatarImg = document.getElementById("header-avatar-img");
+  const headerAvatarPlaceholder = document.getElementById("header-avatar-placeholder");
+
   if (isLoggedIn()) {
     loginForm.style.display = "none";
     registerForm.style.display = "none";
     authStatus.style.display = "flex";
     banner.style.display = "none";
     savedTracks.style.display = "";
-    document.getElementById("auth-username-display").textContent = getUsername();
+    const username = getUsername();
+    document.getElementById("auth-username-display").textContent = username;
+
+    // Show placeholder initial.
+    headerAvatarPlaceholder.textContent = username.charAt(0);
+
+    // Try to load avatar.
+    headerAvatarImg.onload = () => {
+      headerAvatarImg.classList.add("loaded");
+    };
+    headerAvatarImg.onerror = () => {
+      headerAvatarImg.classList.remove("loaded");
+    };
+    headerAvatarImg.src = avatarUrl(username) + "?t=" + Date.now();
   } else {
     loginForm.style.display = "flex";
     registerForm.style.display = "none";
     authStatus.style.display = "none";
     banner.style.display = "block";
     savedTracks.style.display = "none";
+    headerAvatarImg.classList.remove("loaded");
   }
 
   // Always explicitly set add-track visibility based on track count.

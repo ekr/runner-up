@@ -25,6 +25,23 @@
   <div id="settings-content" style="display: none;">
 
     <div class="settings-section">
+      <h3>Profile Picture</h3>
+      <div class="avatar-upload">
+        <div class="avatar-preview-container">
+          <img id="avatar-preview" class="avatar-preview" alt="Avatar preview">
+        </div>
+        <div class="avatar-controls">
+          <input type="file" id="avatar-file-input" accept="image/png, image/jpeg">
+          <button id="avatar-upload-btn">Choose Image</button>
+          <button id="avatar-remove-btn" style="display: none;">Remove</button>
+        </div>
+        <p class="avatar-hint">Max 1 MB. Will be resized to 128&times;128.</p>
+        <span id="avatar-error" class="auth-error"></span>
+        <span id="avatar-success" class="settings-success"></span>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h3>Units</h3>
       <div class="settings-inline">
         <label for="units-control">Display units: </label>

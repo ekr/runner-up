@@ -13,12 +13,19 @@ body {
 }
 
 #auth-login-form,
-#auth-register-form,
-#auth-status {
+#auth-register-form {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+#auth-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-left: 10px;
 }
 
 #auth-bar input {
@@ -47,8 +54,34 @@ body {
     color: #666;
 }
 
+#auth-logout-btn {
+    background: none !important;
+    border: none !important;
+    padding: 0;
+    font-size: 13px;
+    color: #888;
+    cursor: pointer;
+}
+
+#auth-logout-btn:hover {
+    color: #333;
+    text-decoration: underline;
+}
+
 #auth-username-display {
     font-weight: bold;
+}
+
+.header-avatar-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.header-avatar-link:hover #auth-username-display {
+    text-decoration: underline;
 }
 
 .auth-error {
@@ -97,10 +130,46 @@ body {
 
 .logo-container {
     display: flex;
+    align-items: center;
 }
 
-.logo-container img {
+.logo-container > img {
     margin-left: auto;
+}
+
+.header-avatar-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.header-avatar-img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    display: none;
+}
+
+.header-avatar-img.loaded {
+    display: block;
+}
+
+.header-avatar-placeholder {
+    font-size: 16px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.header-avatar-img.loaded + .header-avatar-placeholder {
+    display: none;
 }
 
 #map-container {
@@ -225,7 +294,6 @@ body.settings-page {
   padding: 20px 24px 40px;
   background: #fff;
   min-height: 100vh;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
 .settings-page .logo-container {
@@ -273,7 +341,6 @@ body.settings-page {
   border-radius: 6px;
   padding: 20px 24px;
   margin: 16px 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .settings-section h3 {
@@ -479,4 +546,49 @@ body.settings-page {
   color: #999;
   font-style: italic;
   padding: 12px 0;
+}
+
+/* Avatar upload */
+.avatar-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.avatar-preview-container {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-preview {
+  width: 128px;
+  height: 128px;
+  object-fit: cover;
+  display: none;
+}
+
+.avatar-preview.loaded {
+  display: block;
+}
+
+.avatar-controls {
+  display: flex;
+  gap: 8px;
+}
+
+#avatar-file-input {
+  display: none;
+}
+
+.avatar-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
 }

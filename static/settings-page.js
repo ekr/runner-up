@@ -13,6 +13,98 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await Settings.load();
 
+  // --- Avatar ---
+  const avatarPreview = document.querySelector("#avatar-preview");
+  const avatarFileInput = document.querySelector("#avatar-file-input");
+  const avatarUploadBtn = document.querySelector("#avatar-upload-btn");
+  const avatarRemoveBtn = document.querySelector("#avatar-remove-btn");
+  const avatarError = document.querySelector("#avatar-error");
+  const avatarSuccess = document.querySelector("#avatar-success");
+
+  function showAvatarLoaded(src) {
+    avatarPreview.src = src;
+    avatarPreview.classList.add("loaded");
+    avatarRemoveBtn.style.display = "";
+  }
+
+  function showAvatarPlaceholder() {
+    avatarPreview.src = "";
+    avatarPreview.classList.remove("loaded");
+    avatarRemoveBtn.style.display = "none";
+  }
+
+  // Load existing avatar.
+  const username = getUsername();
+  if (username) {
+    const img = new Image();
+    img.onload = () => showAvatarLoaded(avatarUrl(username) + "?t=" + Date.now());
+    img.onerror = () => showAvatarPlaceholder();
+    img.src = avatarUrl(username);
+  }
+
+  avatarUploadBtn.addEventListener("click", () => {
+    avatarFileInput.click();
+  });
+
+  async function resizeImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create image blob"));
+        }, "image/png");
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  avatarFileInput.addEventListener("change", async () => {
+    avatarError.textContent = "";
+    avatarSuccess.textContent = "";
+
+    const file = avatarFileInput.files[0];
+    if (!file) return;
+
+    if (!file.type.match(/^image\/(png|jpeg)$/)) {
+      avatarError.textContent = "Please select a PNG or JPEG image.";
+      avatarFileInput.value = "";
+      return;
+    }
+
+    try {
+      const resized = await resizeImage(file);
+      await apiUploadAvatar(resized);
+      showAvatarLoaded(URL.createObjectURL(resized));
+      avatarSuccess.textContent = "Avatar updated.";
+      setTimeout(() => { avatarSuccess.textContent = ""; }, 3000);
+    } catch (e) {
+      avatarError.textContent = "Upload failed: " + e.message;
+    }
+
+    avatarFileInput.value = "";
+  });
+
+  avatarRemoveBtn.addEventListener("click", async () => {
+    avatarError.textContent = "";
+    avatarSuccess.textContent = "";
+    try {
+      await apiDeleteAvatar();
+      showAvatarPlaceholder();
+    } catch (e) {
+      avatarError.textContent = "Failed to remove avatar: " + e.message;
+    }
+  });
+
   // --- Units ---
   const unitsControl = document.querySelector("#units-control");
   const saveButton = document.querySelector("#save-button");

@@ -58,4 +58,12 @@ export const selectors = {
   deleteConfirmBtn: '#delete-confirm-btn',
   deleteCancelBtn: '#delete-cancel-btn',
   deleteError: '#delete-error',
+
+  // Avatar
+  avatarPreview: '#avatar-preview',
+  avatarFileInput: '#avatar-file-input',
+  avatarUploadBtn: '#avatar-upload-btn',
+  avatarRemoveBtn: '#avatar-remove-btn',
+  avatarError: '#avatar-error',
+  avatarSuccess: '#avatar-success',
 };

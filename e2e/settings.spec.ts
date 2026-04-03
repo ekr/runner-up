@@ -22,7 +22,7 @@ test.describe('Settings', () => {
 
     test('should navigate to settings from main page', async ({ page }) => {
       await page.goto('/');
-      await page.click('a[href="/settings.html"]');
+      await page.click('#settings a[href="/settings.html"]');
       await expect(page).toHaveURL(/settings\.html/);
       await expect(page.locator('h2')).toHaveText('Settings');
     });
@@ -53,8 +53,8 @@ test.describe('Settings', () => {
 
     test('should render settings in card-style sections', async ({ page }) => {
       const sections = page.locator(selectors.settingsSection);
-      // Units, Change Password, My Tracks, Delete Account
-      await expect(sections).toHaveCount(4);
+      // Profile Picture, Units, Change Password, My Tracks, Delete Account
+      await expect(sections).toHaveCount(5);
 
       // Verify card styling on first section
       const border = await sections.first().evaluate(el => getComputedStyle(el).borderRadius);
