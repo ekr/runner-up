@@ -97,10 +97,35 @@ body {
 
 .logo-container {
     display: flex;
+    align-items: center;
 }
 
-.logo-container img {
+.logo-container > img {
     margin-left: auto;
+}
+
+.header-avatar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-avatar-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: none;
+}
+
+.header-avatar-img.loaded {
+    display: block;
+}
+
+#header-avatar-username {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
 }
 
 #map-container {
