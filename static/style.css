@@ -469,6 +469,17 @@ body.settings-page {
   box-sizing: border-box;
 }
 
+.track-list-divider {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
 .track-empty {
   color: #999;
   font-style: italic;

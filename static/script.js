@@ -526,6 +526,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   addGraphTypeListener();
   addDisplayModeListener();
+
+  // Listen for hash changes (e.g., user pastes a URL with track IDs).
+  window.addEventListener("hashchange", () => {
+    const newHash = window.location.hash;
+    if (newHash.length > 1) {
+      // Clear existing tracks before loading from the new hash.
+      data.length = 0;
+      dataToStorageId.length = 0;
+      dataToIsShared.length = 0;
+      dataToSharedBy.length = 0;
+      dataToLabel.length = 0;
+      loadTracksFromHash(newHash);
+    }
+  });
 });
 
 // Add listener for display mode toggle.

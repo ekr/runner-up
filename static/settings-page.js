@@ -72,136 +72,169 @@ document.addEventListener("DOMContentLoaded", async () => {
   const trackList = document.querySelector("#track-list");
   const tracksError = document.querySelector("#tracks-error");
 
+  function createTrackItem(track, isShared) {
+    const trackId = isShared ? track.trackId : track.id;
+    const item = document.createElement("div");
+    item.className = "track-item";
+
+    const info = document.createElement("div");
+    info.className = "track-item-info";
+
+    const nameRow = document.createElement("div");
+    nameRow.className = "track-item-name-row";
+
+    const dateStr = track.date
+      ? new Date(track.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+      : "Unknown date";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "track-item-date";
+    let displayName = track.label || dateStr;
+    if (isShared) displayName += ` (${track.sharedBy})`;
+    nameSpan.textContent = displayName;
+
+    nameRow.appendChild(nameSpan);
+
+    // Only own tracks can be renamed.
+    if (!isShared) {
+      const renameBtn = document.createElement("button");
+      renameBtn.className = "rename-button";
+      renameBtn.textContent = "\u270E";
+      renameBtn.title = "Rename track";
+      renameBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "track-rename-input";
+        input.value = track.label || "";
+        input.placeholder = dateStr;
+
+        const commitRename = async () => {
+          const newLabel = input.value.trim();
+          track.label = newLabel || undefined;
+          nameSpan.textContent = newLabel || dateStr;
+          input.replaceWith(nameSpan);
+          renameBtn.style.display = "";
+          // Rebuild details to include/exclude date
+          const parts = [];
+          if (track.sizeBytes) parts.push(formatBytes(track.sizeBytes));
+          if (track.startLat != null && track.startLon != null) {
+            parts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
+          }
+          if (newLabel && track.date) parts.push(dateStr);
+          details.textContent = parts.join(" \u00B7 ");
+          if (parts.length > 0) {
+            if (!details.parentNode) info.appendChild(details);
+          } else {
+            details.remove();
+          }
+          await apiRenameTrack(trackId, newLabel || null);
+        };
+
+        input.addEventListener("blur", commitRename);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") input.blur();
+          if (e.key === "Escape") {
+            input.removeEventListener("blur", commitRename);
+            input.replaceWith(nameSpan);
+            renameBtn.style.display = "";
+          }
+        });
+
+        nameSpan.replaceWith(input);
+        renameBtn.style.display = "none";
+        input.focus();
+        input.select();
+      });
+
+      nameRow.appendChild(renameBtn);
+    }
+
+    const details = document.createElement("span");
+    details.className = "track-item-details";
+    const sizeParts = [];
+    if (track.sizeBytes) {
+      sizeParts.push(formatBytes(track.sizeBytes));
+    }
+    if (track.startLat != null && track.startLon != null) {
+      sizeParts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
+    }
+    if (track.label && track.date) {
+      sizeParts.push(dateStr);
+    }
+    details.textContent = sizeParts.join(" \u00B7 ");
+
+    info.appendChild(nameRow);
+    if (sizeParts.length > 0) {
+      info.appendChild(details);
+    }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "delete-button";
+    deleteBtn.textContent = "\u00D7";
+    deleteBtn.title = isShared ? "Remove shared track" : "Delete track";
+    deleteBtn.addEventListener("click", async () => {
+      const msg = isShared
+        ? "Remove this shared track from your list?"
+        : "Delete this track permanently?";
+      if (!confirm(msg)) return;
+      try {
+        if (isShared) {
+          await removeSharedTrack(trackId);
+        } else {
+          await deleteGPXFromStorage(trackId);
+        }
+        item.remove();
+        if (trackList.children.length === 0) {
+          trackList.innerHTML = '<p class="track-empty">No tracks saved.</p>';
+        }
+      } catch (e) {
+        tracksError.textContent = "Failed to delete track: " + e.message;
+      }
+    });
+
+    item.appendChild(info);
+    item.appendChild(deleteBtn);
+    return item;
+  }
+
   async function loadTracks() {
     trackList.innerHTML = "";
     tracksError.textContent = "";
 
     try {
-      const tracks = await getAllStoredGPX();
+      const [ownTracks, sharedTracks] = await Promise.all([
+        getAllStoredGPX(),
+        getSharedTracks(),
+      ]);
 
-      if (tracks.length === 0) {
+      if (ownTracks.length === 0 && sharedTracks.length === 0) {
         trackList.innerHTML = '<p class="track-empty">No tracks saved.</p>';
         return;
       }
 
-      // Sort by date descending (newest first).
-      tracks.sort((a, b) => {
+      // Sort each group by date descending (newest first).
+      const byDateDesc = (a, b) => {
         if (!a.date && !b.date) return 0;
         if (!a.date) return 1;
         if (!b.date) return -1;
         return new Date(b.date) - new Date(a.date);
-      });
+      };
+      ownTracks.sort(byDateDesc);
+      sharedTracks.sort(byDateDesc);
 
-      for (const track of tracks) {
-        const item = document.createElement("div");
-        item.className = "track-item";
+      for (const track of ownTracks) {
+        trackList.appendChild(createTrackItem(track, false));
+      }
 
-        const info = document.createElement("div");
-        info.className = "track-item-info";
+      if (sharedTracks.length > 0 && ownTracks.length > 0) {
+        const divider = document.createElement("div");
+        divider.className = "track-list-divider";
+        divider.textContent = "Shared with me";
+        trackList.appendChild(divider);
+      }
 
-        const nameRow = document.createElement("div");
-        nameRow.className = "track-item-name-row";
-
-        const dateStr = track.date
-          ? new Date(track.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-          : "Unknown date";
-
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "track-item-date";
-        nameSpan.textContent = track.label || dateStr;
-
-        const renameBtn = document.createElement("button");
-        renameBtn.className = "rename-button";
-        renameBtn.textContent = "\u270E";
-        renameBtn.title = "Rename track";
-        renameBtn.addEventListener("click", () => {
-          const input = document.createElement("input");
-          input.type = "text";
-          input.className = "track-rename-input";
-          input.value = track.label || "";
-          input.placeholder = dateStr;
-
-          const commitRename = async () => {
-            const newLabel = input.value.trim();
-            track.label = newLabel || undefined;
-            nameSpan.textContent = newLabel || dateStr;
-            input.replaceWith(nameSpan);
-            renameBtn.style.display = "";
-            // Rebuild details to include/exclude date
-            const parts = [];
-            if (track.sizeBytes) parts.push(formatBytes(track.sizeBytes));
-            if (track.startLat != null && track.startLon != null) {
-              parts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
-            }
-            if (newLabel && track.date) parts.push(dateStr);
-            details.textContent = parts.join(" \u00B7 ");
-            if (parts.length > 0) {
-              if (!details.parentNode) info.appendChild(details);
-            } else {
-              details.remove();
-            }
-            await apiRenameTrack(track.id, newLabel || null);
-          };
-
-          input.addEventListener("blur", commitRename);
-          input.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") input.blur();
-            if (e.key === "Escape") {
-              input.removeEventListener("blur", commitRename);
-              input.replaceWith(nameSpan);
-              renameBtn.style.display = "";
-            }
-          });
-
-          nameSpan.replaceWith(input);
-          renameBtn.style.display = "none";
-          input.focus();
-          input.select();
-        });
-
-        nameRow.appendChild(nameSpan);
-        nameRow.appendChild(renameBtn);
-
-        const details = document.createElement("span");
-        details.className = "track-item-details";
-        const sizeParts = [];
-        if (track.sizeBytes) {
-          sizeParts.push(formatBytes(track.sizeBytes));
-        }
-        if (track.startLat != null && track.startLon != null) {
-          sizeParts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
-        }
-        if (track.label && track.date) {
-          sizeParts.push(dateStr);
-        }
-        details.textContent = sizeParts.join(" \u00B7 ");
-
-        info.appendChild(nameRow);
-        if (sizeParts.length > 0) {
-          info.appendChild(details);
-        }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "delete-button";
-        deleteBtn.textContent = "\u00D7";
-        deleteBtn.title = "Delete track";
-        deleteBtn.addEventListener("click", async () => {
-          if (!confirm("Delete this track permanently?")) return;
-          try {
-            await deleteGPXFromStorage(track.id);
-            item.remove();
-            // Check if list is now empty.
-            if (trackList.children.length === 0) {
-              trackList.innerHTML = '<p class="track-empty">No tracks saved.</p>';
-            }
-          } catch (e) {
-            tracksError.textContent = "Failed to delete track: " + e.message;
-          }
-        });
-
-        item.appendChild(info);
-        item.appendChild(deleteBtn);
-        trackList.appendChild(item);
+      for (const track of sharedTracks) {
+        trackList.appendChild(createTrackItem(track, true));
       }
     } catch (e) {
       tracksError.textContent = "Failed to load tracks: " + e.message;
