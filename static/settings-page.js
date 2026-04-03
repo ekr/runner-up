@@ -95,59 +95,62 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     nameRow.appendChild(nameSpan);
 
-    // Only own tracks can be renamed.
-    if (!isShared) {
-      const renameBtn = document.createElement("button");
-      renameBtn.className = "rename-button";
-      renameBtn.textContent = "\u270E";
-      renameBtn.title = "Rename track";
-      renameBtn.addEventListener("click", () => {
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "track-rename-input";
-        input.value = track.label || "";
-        input.placeholder = dateStr;
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "rename-button";
+    renameBtn.textContent = "\u270E";
+    renameBtn.title = "Rename track";
+    renameBtn.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "track-rename-input";
+      input.value = track.label || "";
+      input.placeholder = dateStr;
 
-        const commitRename = async () => {
-          const newLabel = input.value.trim();
-          track.label = newLabel || undefined;
-          nameSpan.textContent = newLabel || dateStr;
+      const commitRename = async () => {
+        const newLabel = input.value.trim();
+        track.label = newLabel || undefined;
+        let newDisplayName = newLabel || dateStr;
+        if (isShared) newDisplayName += ` (${track.sharedBy})`;
+        nameSpan.textContent = newDisplayName;
+        input.replaceWith(nameSpan);
+        renameBtn.style.display = "";
+        // Rebuild details to include/exclude date
+        const parts = [];
+        if (track.sizeBytes) parts.push(formatBytes(track.sizeBytes));
+        if (track.startLat != null && track.startLon != null) {
+          parts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
+        }
+        if (newLabel && track.date) parts.push(dateStr);
+        details.textContent = parts.join(" \u00B7 ");
+        if (parts.length > 0) {
+          if (!details.parentNode) info.appendChild(details);
+        } else {
+          details.remove();
+        }
+        if (isShared) {
+          await apiRenameSharedTrack(trackId, newLabel || null);
+        } else {
+          await apiRenameTrack(trackId, newLabel || null);
+        }
+      };
+
+      input.addEventListener("blur", commitRename);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") input.blur();
+        if (e.key === "Escape") {
+          input.removeEventListener("blur", commitRename);
           input.replaceWith(nameSpan);
           renameBtn.style.display = "";
-          // Rebuild details to include/exclude date
-          const parts = [];
-          if (track.sizeBytes) parts.push(formatBytes(track.sizeBytes));
-          if (track.startLat != null && track.startLon != null) {
-            parts.push(`${track.startLat.toFixed(2)}, ${track.startLon.toFixed(2)}`);
-          }
-          if (newLabel && track.date) parts.push(dateStr);
-          details.textContent = parts.join(" \u00B7 ");
-          if (parts.length > 0) {
-            if (!details.parentNode) info.appendChild(details);
-          } else {
-            details.remove();
-          }
-          await apiRenameTrack(trackId, newLabel || null);
-        };
-
-        input.addEventListener("blur", commitRename);
-        input.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") input.blur();
-          if (e.key === "Escape") {
-            input.removeEventListener("blur", commitRename);
-            input.replaceWith(nameSpan);
-            renameBtn.style.display = "";
-          }
-        });
-
-        nameSpan.replaceWith(input);
-        renameBtn.style.display = "none";
-        input.focus();
-        input.select();
+        }
       });
 
-      nameRow.appendChild(renameBtn);
-    }
+      nameSpan.replaceWith(input);
+      renameBtn.style.display = "none";
+      input.focus();
+      input.select();
+    });
+
+    nameRow.appendChild(renameBtn);
 
     const details = document.createElement("span");
     details.className = "track-item-details";

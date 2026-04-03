@@ -16,6 +16,7 @@ export interface SharedTrackMeta {
   startLat: number | null;
   startLon: number | null;
   sizeBytes: number;
+  label?: string;
 }
 
 // Limits to stay within R2 free tier.
@@ -367,6 +368,48 @@ export async function handleSharedTrackRoutes(
   if (request.method === 'GET' && path === '/shared-tracks') {
     const shares = await readShares(env.GPX_BUCKET, userId);
     return jsonResponse(shares, 200);
+  }
+
+  // PATCH /shared-tracks/{id} — update shared track metadata (e.g., label).
+  if (request.method === 'PATCH' && path.startsWith('/shared-tracks/') && path.length > '/shared-tracks/'.length) {
+    const trackId = path.slice('/shared-tracks/'.length);
+    if (!VALID_TRACK_ID.test(trackId)) {
+      return jsonResponse({ error: 'Invalid track ID' }, 400);
+    }
+
+    let body: { label?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400);
+    }
+
+    if (typeof body.label !== 'string' && body.label !== null) {
+      return jsonResponse({ error: 'label must be a string or null' }, 400);
+    }
+
+    const shares = await readShares(env.GPX_BUCKET, userId);
+    const entry = shares.find((s) => s.trackId === trackId);
+    if (!entry) {
+      return jsonResponse({ error: 'Not found' }, 404);
+    }
+
+    if (typeof body.label === 'string') {
+      const trimmed = body.label.trim();
+      if (trimmed.length > 200) {
+        return jsonResponse({ error: 'Label too long (max 200 characters)' }, 400);
+      }
+      if (trimmed) {
+        entry.label = trimmed;
+      } else {
+        delete entry.label;
+      }
+    } else {
+      delete entry.label;
+    }
+
+    await writeShares(env.GPX_BUCKET, userId, shares);
+    return jsonResponse({ ok: true }, 200);
   }
 
   // DELETE /shared-tracks/{id} — remove a shared track from your list.

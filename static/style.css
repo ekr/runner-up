@@ -446,11 +446,6 @@ body.settings-page {
   height: 20px;
   border-radius: 50%;
   transition: background-color 0.15s ease, color 0.15s ease;
-  opacity: 0;
-}
-
-.track-item:hover .rename-button {
-  opacity: 1;
 }
 
 .rename-button:hover {

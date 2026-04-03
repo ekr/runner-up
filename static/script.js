@@ -267,7 +267,9 @@ async function populateSavedTracks() {
     for (const entry of shared) {
       if (displayedIds.has(entry.trackId)) continue;
       let displayText;
-      if (entry.date) {
+      if (entry.label) {
+        displayText = entry.label;
+      } else if (entry.date) {
         const d = new Date(entry.date);
         const date = d.toDateString();
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -281,7 +283,7 @@ async function populateSavedTracks() {
         displayText,
         isShared: true,
         sharedBy: entry.sharedBy,
-        label: null,
+        label: entry.label || null,
       });
     }
 
@@ -387,8 +389,12 @@ async function renameTrack(trackIndex, newLabel) {
   const storageId = dataToStorageId[trackIndex];
   const trimmed = newLabel ? newLabel.trim() : null;
   dataToLabel[trackIndex] = trimmed || null;
-  if (storageId && isLoggedIn() && !dataToIsShared[trackIndex]) {
-    await apiRenameTrack(storageId, trimmed);
+  if (storageId && isLoggedIn()) {
+    if (dataToIsShared[trackIndex]) {
+      await apiRenameSharedTrack(storageId, trimmed);
+    } else {
+      await apiRenameTrack(storageId, trimmed);
+    }
   }
   displayTracks();
 }

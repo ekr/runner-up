@@ -60,8 +60,8 @@ function LeafletMap() {
       clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
       let trackId = i;
 
-      // Inline rename on click (only for own tracks with a storage ID).
-      const canRename = storageIds && storageIds[i] && isSharedArr && !isSharedArr[i];
+      // Inline rename on click (requires a storage ID and being logged in).
+      const canRename = storageIds && storageIds[i] && typeof isLoggedIn === 'function' && isLoggedIn();
       if (canRename) {
         legendText.style.cursor = "pointer";
         legendText.addEventListener("click", () => {

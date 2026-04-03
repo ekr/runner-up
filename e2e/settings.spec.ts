@@ -219,8 +219,38 @@ test.describe('Settings', () => {
       // Shared track should show (alice)
       const sharedItem = page.locator(selectors.trackItem).nth(1);
       await expect(sharedItem.locator('.track-item-date')).toContainText('(alice)');
-      // Shared track should not have rename button
-      await expect(sharedItem.locator('.rename-button')).toHaveCount(0);
+      // Shared track should have rename button
+      await expect(sharedItem.locator('.rename-button')).toHaveCount(1);
+    });
+
+    test('should rename shared track on settings page', async ({ page }) => {
+      await page.goto('/settings.html');
+      await clearLocalStorageNow(page);
+      const mock = await setupApiMock(page);
+      mock.seedSharedTracks([{
+        trackId: 'b'.repeat(32),
+        sharedBy: 'bob',
+        date: '2024-03-10T08:00:00Z',
+        startLat: 37.77,
+        startLon: -122.42,
+        sizeBytes: 3000,
+      }]);
+      await page.reload();
+
+      const sharedItem = page.locator(selectors.trackItem).first();
+      const nameSpan = sharedItem.locator('.track-item-date');
+      await expect(nameSpan).toContainText('(bob)');
+
+      // Click rename
+      await sharedItem.locator('.rename-button').click();
+      const input = sharedItem.locator('.track-rename-input');
+      await expect(input).toBeVisible();
+
+      await input.fill('Bob Morning Run');
+      await input.press('Enter');
+
+      // Should show new label with (bob) suffix
+      await expect(nameSpan).toHaveText('Bob Morning Run (bob)');
     });
   });
 

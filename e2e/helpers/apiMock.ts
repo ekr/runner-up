@@ -24,6 +24,7 @@ interface SharedTrackMeta {
   startLat: number | null;
   startLon: number | null;
   sizeBytes: number;
+  label?: string;
 }
 
 // Mock auth token for tests. In the real system this is HMAC-signed;
@@ -252,6 +253,43 @@ export async function setupApiMock(page: Page) {
         contentType: 'application/json',
         headers: corsHeaders,
         body: JSON.stringify(sharedTracks),
+      });
+      return;
+    }
+
+    // PATCH /shared-tracks/{id} — rename shared track (authenticated)
+    if (method === 'PATCH' && path.startsWith('/shared-tracks/')) {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const trackId = path.slice('/shared-tracks/'.length);
+      const entry = sharedTracks.find((s) => s.trackId === trackId);
+      if (!entry) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (typeof body.label === 'string' && body.label.trim()) {
+        entry.label = body.label.trim();
+      } else {
+        delete entry.label;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true }),
       });
       return;
     }
