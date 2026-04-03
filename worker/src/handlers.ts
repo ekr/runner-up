@@ -1,5 +1,4 @@
 import type { Env } from './index';
-import { readUser } from './auth';
 
 interface TrackMeta {
   id: string;
@@ -470,7 +469,7 @@ const VALID_AVATAR_TYPES = ['image/png', 'image/jpeg'];
 export async function handleAvatarRoutes(
   request: Request,
   env: Env,
-  userId: string,
+  username: string,
 ): Promise<Response> {
   // PUT /avatar — upload avatar.
   if (request.method === 'PUT') {
@@ -485,7 +484,7 @@ export async function handleAvatarRoutes(
     if (body.byteLength > MAX_AVATAR_BYTES) {
       return jsonResponse({ error: 'Avatar too large (max 1MB)' }, 413);
     }
-    await env.GPX_BUCKET.put(`avatar/${userId}`, body, {
+    await env.GPX_BUCKET.put(`avatar/${username}`, body, {
       httpMetadata: { contentType },
     });
     return new Response(null, { status: 204 });
@@ -493,7 +492,7 @@ export async function handleAvatarRoutes(
 
   // DELETE /avatar — remove avatar.
   if (request.method === 'DELETE') {
-    await env.GPX_BUCKET.delete(`avatar/${userId}`);
+    await env.GPX_BUCKET.delete(`avatar/${username}`);
     return new Response(null, { status: 204 });
   }
 
@@ -504,11 +503,7 @@ export async function handleAvatarGet(
   env: Env,
   username: string,
 ): Promise<Response> {
-  const user = await readUser(env.GPX_BUCKET, username);
-  if (!user) {
-    return jsonResponse({ error: 'Not found' }, 404);
-  }
-  const obj = await env.GPX_BUCKET.get(`avatar/${user.userId}`);
+  const obj = await env.GPX_BUCKET.get(`avatar/${username}`);
   if (!obj) {
     return jsonResponse({ error: 'Not found' }, 404);
   }

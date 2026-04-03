@@ -311,7 +311,7 @@ export async function handleDeleteAccount(request: Request, env: Env, userId: st
   }
 
   // Delete avatar, settings, shares, and user record.
-  await env.GPX_BUCKET.delete(`avatar/${userId}`);
+  await env.GPX_BUCKET.delete(`avatar/${username}`);
   await env.GPX_BUCKET.delete(`settings/${userId}`);
   await env.GPX_BUCKET.delete(`shares/${userId}`);
   await env.GPX_BUCKET.delete(`user/${username}`);

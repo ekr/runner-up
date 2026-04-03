@@ -79,7 +79,7 @@ export default {
       if ((request.method === 'PUT' || request.method === 'DELETE') && normalizedPath === '/avatar') {
         const auth = await extractUserId(request, env);
         if (!auth) return jsonResponse({ error: 'Authentication required' }, 401, cors);
-        const result = await handleAvatarRoutes(request, env, auth.userId);
+        const result = await handleAvatarRoutes(request, env, auth.username);
         return addHeaders(result, cors);
       }
 
