@@ -8,6 +8,7 @@ interface TrackMeta {
   date: string | null;
   startLat: number | null;
   startLon: number | null;
+  label?: string;
 }
 
 interface StoredTrackData {
@@ -23,6 +24,7 @@ interface SharedTrackMeta {
   startLat: number | null;
   startLon: number | null;
   sizeBytes: number;
+  label?: string;
 }
 
 // Mock auth token for tests. In the real system this is HMAC-signed;
@@ -92,7 +94,7 @@ export async function setupApiMock(page: Page) {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, PATCH, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       });
@@ -255,6 +257,43 @@ export async function setupApiMock(page: Page) {
       return;
     }
 
+    // PATCH /shared-tracks/{id} — rename shared track (authenticated)
+    if (method === 'PATCH' && path.startsWith('/shared-tracks/')) {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const trackId = path.slice('/shared-tracks/'.length);
+      const entry = sharedTracks.find((s) => s.trackId === trackId);
+      if (!entry) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (typeof body.label === 'string' && body.label.trim()) {
+        entry.label = body.label.trim();
+      } else {
+        delete entry.label;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+
     // DELETE /shared-tracks/{id} — remove shared track (authenticated)
     if (method === 'DELETE' && path.startsWith('/shared-tracks/')) {
       if (!isAuthenticated(request)) {
@@ -377,6 +416,34 @@ export async function setupApiMock(page: Page) {
       return;
     }
 
+    // PATCH /tracks/{id} — rename track
+    if (method === 'PATCH' && path.startsWith('/tracks/') && path !== '/tracks') {
+      const trackId = path.slice('/tracks/'.length);
+      const track = tracks.find((t) => t.id === trackId);
+      if (!track) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+        return;
+      }
+      const body = JSON.parse(request.postData() || '{}');
+      if (typeof body.label === 'string' && body.label.trim()) {
+        track.meta.label = body.label.trim();
+      } else {
+        delete track.meta.label;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+
     // DELETE /tracks/{id}
     if (method === 'DELETE' && path.startsWith('/tracks/') && path !== '/tracks') {
       const trackId = path.slice('/tracks/'.length);
@@ -426,6 +493,17 @@ export async function setupApiMock(page: Page) {
       }
     },
     getTrackId: (gpxText: string) => computeTestTrackId(TEST_USER_ID, gpxText),
+    setTrackLabel: (gpxText: string, label: string) => {
+      const trackId = computeTestTrackId(TEST_USER_ID, gpxText);
+      const track = tracks.find((t) => t.id === trackId);
+      if (track) {
+        if (label) {
+          track.meta.label = label;
+        } else {
+          delete track.meta.label;
+        }
+      }
+    },
     getSettings: () => ({ ...settings }),
     setPassword: (pw: string) => { currentPassword = pw; },
     seedSharedTracks: (entries: SharedTrackMeta[]) => {

@@ -55,12 +55,12 @@ function drawDifferenceGraph(
     const x_value =
       x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
 
-    comparisonTracks.map((track) => {
+    comparisonTracks.map((track, ci) => {
       const comparator = getValueAtPosition(track, x_name, x_value, y_name);
       differences.push({
         time: t,
         diff: transform(comparator) - transform(baseline),
-        trackDate: getStartDate(track),
+        trackLabel: getTrackDisplayName(ci + 1),
       });
     });
   }
@@ -73,7 +73,7 @@ function drawDifferenceGraph(
       Plot.line(differences, {
         x: "time",
         y: "diff",
-        stroke: (d) => d.trackDate,
+        stroke: (d) => d.trackLabel,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
       /*

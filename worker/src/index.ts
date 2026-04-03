@@ -18,7 +18,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (ALLOWED_ORIGINS.includes(origin) || isLocalhost);
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, PATCH, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Expose-Headers': '',
     'Vary': 'Origin',
