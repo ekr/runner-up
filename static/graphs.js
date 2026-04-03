@@ -51,7 +51,7 @@ function drawDifferenceGraph(
   let comparisonTracks = tracks.slice(1);
 
   for (let t = graphStart; t <= graphEnd; t += 1) {
-    const baseline = tracks[0][t][y_name];
+    const baseline = getValueAtPosition(tracks[0], "time", t, y_name);
     const x_value =
       x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
 
