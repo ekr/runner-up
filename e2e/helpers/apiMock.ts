@@ -75,6 +75,8 @@ export async function setupApiMock(page: Page) {
   let sharedTracks: SharedTrackMeta[] = [];
   let settings: Record<string, unknown> = {};
   let currentPassword = 'testpassword';
+  let avatarData: Buffer | null = null;
+  let avatarContentType: string | null = null;
 
   // Set auth token and username in localStorage so the client is logged in.
   await page.evaluate(({ token, username }) => {
@@ -191,6 +193,8 @@ export async function setupApiMock(page: Page) {
       tracks = [];
       sharedTracks = [];
       settings = {};
+      avatarData = null;
+      avatarContentType = null;
       await route.fulfill({
         status: 204,
         headers: corsHeaders,
@@ -344,6 +348,87 @@ export async function setupApiMock(page: Page) {
         contentType: 'application/json',
         headers: corsHeaders,
         body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+
+    // GET /avatar/{username} — public, no auth required
+    if (method === 'GET' && path.startsWith('/avatar/')) {
+      const username = path.slice('/avatar/'.length);
+      if (username === TEST_USERNAME && avatarData) {
+        await route.fulfill({
+          status: 200,
+          contentType: avatarContentType || 'image/png',
+          headers: corsHeaders,
+          body: avatarData,
+        });
+      } else {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Not found' }),
+        });
+      }
+      return;
+    }
+
+    // PUT /avatar — upload avatar (authenticated)
+    if (method === 'PUT' && path === '/avatar') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      const contentType = request.headers()['content-type'] || '';
+      if (contentType !== 'image/png' && contentType !== 'image/jpeg') {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Content-Type must be image/png or image/jpeg' }),
+        });
+        return;
+      }
+      const body = request.postDataBuffer();
+      if (!body || body.length > 1024 * 1024) {
+        await route.fulfill({
+          status: 413,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Avatar too large (max 1MB)' }),
+        });
+        return;
+      }
+      avatarData = body;
+      avatarContentType = contentType;
+      await route.fulfill({
+        status: 204,
+        headers: corsHeaders,
+      });
+      return;
+    }
+
+    // DELETE /avatar — remove avatar (authenticated)
+    if (method === 'DELETE' && path === '/avatar') {
+      if (!isAuthenticated(request)) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        });
+        return;
+      }
+      avatarData = null;
+      avatarContentType = null;
+      await route.fulfill({
+        status: 204,
+        headers: corsHeaders,
       });
       return;
     }
@@ -510,5 +595,10 @@ export async function setupApiMock(page: Page) {
       sharedTracks.push(...entries);
     },
     getSharedTrackCount: () => sharedTracks.length,
+    hasAvatar: () => avatarData !== null,
+    seedAvatar: (data: Buffer, contentType: string) => {
+      avatarData = data;
+      avatarContentType = contentType;
+    },
   };
 }

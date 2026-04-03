@@ -18,7 +18,7 @@ const VALID_USERNAME = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 1024;
 
-interface UserRecord {
+export interface UserRecord {
   username: string;
   passwordHash: string; // hex
   salt: string; // hex
@@ -102,7 +102,7 @@ async function hashId(rawId: string): Promise<string> {
 }
 
 // Read a user record from R2.
-async function readUser(bucket: R2Bucket, username: string): Promise<UserRecord | null> {
+export async function readUser(bucket: R2Bucket, username: string): Promise<UserRecord | null> {
   const obj = await bucket.get(`user/${username}`);
   if (!obj) return null;
   return JSON.parse(await obj.text());
@@ -310,7 +310,8 @@ export async function handleDeleteAccount(request: Request, env: Env, userId: st
     await writeStats(env.GPX_BUCKET, stats);
   }
 
-  // Delete settings, shares, and user record.
+  // Delete avatar, settings, shares, and user record.
+  await env.GPX_BUCKET.delete(`avatar/${userId}`);
   await env.GPX_BUCKET.delete(`settings/${userId}`);
   await env.GPX_BUCKET.delete(`shares/${userId}`);
   await env.GPX_BUCKET.delete(`user/${username}`);

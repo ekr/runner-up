@@ -53,8 +53,8 @@ test.describe('Settings', () => {
 
     test('should render settings in card-style sections', async ({ page }) => {
       const sections = page.locator(selectors.settingsSection);
-      // Units, Change Password, My Tracks, Delete Account
-      await expect(sections).toHaveCount(4);
+      // Profile Picture, Units, Change Password, My Tracks, Delete Account
+      await expect(sections).toHaveCount(5);
 
       // Verify card styling on first section
       const border = await sections.first().evaluate(el => getComputedStyle(el).borderRadius);
