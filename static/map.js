@@ -22,12 +22,24 @@ function LeafletMap() {
     map.fitBounds(polyline.getBounds()); // Zoom to the track
   }
 
-  function setMarker(position, trackIndex) {
+  function setMarker(position, trackIndex, username) {
     const color = getColor(trackIndex);
+    const hasAvatar = username && typeof avatarCache !== 'undefined' && avatarCache[username];
+    let html;
+    if (hasAvatar) {
+      const src = avatarUrl(username);
+      html = `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid ${color}; overflow: hidden;">` +
+        `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" />` +
+        `</div>`;
+    } else {
+      html = `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`;
+    }
     const marker = L.marker([position.lat, position.lon], {
       icon: L.divIcon({
         className: "my-div-icon",
-        html: `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`,
+        html: html,
+        iconSize: hasAvatar ? [28, 28] : [10, 10],
+        iconAnchor: hasAvatar ? [14, 14] : [5, 5],
       }),
     }).addTo(map);
     markers.push(marker);
@@ -46,7 +58,7 @@ function LeafletMap() {
     }
   }
 
-  function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels) {
+  function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels, sharedByArr) {
     const legendContainer = document.getElementById("legend-container");
     clearChildren(legendContainer);
     for (let i in tracks) {
@@ -57,7 +69,24 @@ function LeafletMap() {
       const legendText = clone.querySelector("#legend-text");
       legendText.textContent = displayNames ? displayNames[i] : getStartDate(track);
       legendText.title = dateStrings ? dateStrings[i] : getStartDate(track);
-      clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
+      const iconEl = clone.querySelector("#legend-icon");
+      const username = sharedByArr && sharedByArr[i];
+      const hasAvatar = username && typeof avatarCache !== 'undefined' && avatarCache[username];
+      if (hasAvatar) {
+        iconEl.style.backgroundColor = "transparent";
+        iconEl.style.borderRadius = "50%";
+        iconEl.style.border = `2px solid ${getColor(i)}`;
+        iconEl.style.overflow = "hidden";
+        iconEl.style.padding = "0";
+        const img = document.createElement("img");
+        img.src = avatarUrl(username);
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+        iconEl.appendChild(img);
+      } else {
+        iconEl.style.backgroundColor = getColor(i);
+      }
       let trackId = i;
 
       // Inline rename on click (requires a storage ID and being logged in).

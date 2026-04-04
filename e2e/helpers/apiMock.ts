@@ -15,6 +15,7 @@ interface StoredTrackData {
   id: string;
   data: string;
   meta: TrackMeta;
+  owner: string;
 }
 
 interface SharedTrackMeta {
@@ -77,6 +78,8 @@ export async function setupApiMock(page: Page) {
   let currentPassword = 'testpassword';
   let avatarData: Buffer | null = null;
   let avatarContentType: string | null = null;
+  // Avatars for other usernames (for testing avatar display on shared tracks).
+  const otherAvatars: Map<string, { data: Buffer; contentType: string }> = new Map();
 
   // Set auth token and username in localStorage so the client is logged in.
   await page.evaluate(({ token, username }) => {
@@ -362,6 +365,14 @@ export async function setupApiMock(page: Page) {
           headers: corsHeaders,
           body: avatarData,
         });
+      } else if (otherAvatars.has(username)) {
+        const other = otherAvatars.get(username)!;
+        await route.fulfill({
+          status: 200,
+          contentType: other.contentType,
+          headers: corsHeaders,
+          body: other.data,
+        });
       } else {
         await route.fulfill({
           status: 404,
@@ -442,7 +453,7 @@ export async function setupApiMock(page: Page) {
           status: 200,
           contentType: 'application/json',
           headers: corsHeaders,
-          body: JSON.stringify({ id: track.id, data: track.data, owner: TEST_USERNAME }),
+          body: JSON.stringify({ id: track.id, data: track.data, owner: track.owner }),
         });
       } else {
         await route.fulfill({
@@ -478,6 +489,7 @@ export async function setupApiMock(page: Page) {
           id: trackId,
           data: body,
           meta: { id: trackId, ...meta },
+          owner: TEST_USERNAME,
         });
       }
 
@@ -564,7 +576,7 @@ export async function setupApiMock(page: Page) {
     userId: TEST_USER_ID,
     getStoredTracks: () => tracks.map((t) => ({ id: t.id, data: t.data })),
     getTrackCount: () => tracks.length,
-    seedTracks: async (gpxDataArray: string[]) => {
+    seedTracks: async (gpxDataArray: string[], owner?: string) => {
       for (const gpxText of gpxDataArray) {
         const trackId = computeTestTrackId(TEST_USER_ID, gpxText);
         const meta = extractGPXMetadata(gpxText);
@@ -573,6 +585,7 @@ export async function setupApiMock(page: Page) {
             id: trackId,
             data: gpxText,
             meta: { id: trackId, ...meta },
+            owner: owner ?? TEST_USERNAME,
           });
         }
       }
@@ -599,6 +612,14 @@ export async function setupApiMock(page: Page) {
     seedAvatar: (data: Buffer, contentType: string) => {
       avatarData = data;
       avatarContentType = contentType;
+    },
+    seedAvatarFor: (username: string, data: Buffer, contentType: string) => {
+      if (username === TEST_USERNAME) {
+        avatarData = data;
+        avatarContentType = contentType;
+      } else {
+        otherAvatars.set(username, { data, contentType });
+      }
     },
   };
 }
