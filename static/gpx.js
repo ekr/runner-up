@@ -7,6 +7,10 @@ function parseGPX(gpxData) {
   if (points.length === 0) {
     return track; // Return empty track if no points
   }
+  if (!points[0].querySelector("time")) {
+    alert("This GPX file has no time data and cannot be used.");
+    return track;
+  }
   const startTime = new Date(points[0].querySelector("time").textContent);
   const startTimeMilliseconds = startTime.getTime();
   let cumulativeDistance = 0;
@@ -14,7 +18,8 @@ function parseGPX(gpxData) {
   points.forEach((point, index) => {
     const lat = parseFloat(point.getAttribute("lat"));
     const lon = parseFloat(point.getAttribute("lon"));
-    const ele = parseFloat(point.querySelector("ele").textContent);
+    const eleEl = point.querySelector("ele");
+    const ele = eleEl ? parseFloat(eleEl.textContent) : 0;
     const absoluteTime = new Date(point.querySelector("time").textContent);
     const relativeTime = absoluteTime.getTime() - startTimeMilliseconds; // Time since start
 
