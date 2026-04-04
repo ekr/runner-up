@@ -140,21 +140,50 @@ function drawElevationGraph(currentTime) {
       distance,
       "elevation",
     );
+    const username = dataToSharedBy[index] || null;
     dots.push({
       x: Units().distanceValue(distance),
       y: Units().elevationValue(elevation),
       color: getColor(index),
+      username: username,
     });
   });
 
+  // Kick off avatar loads for any new usernames; split into avatar vs plain dots.
+  const avatarDots = [];
+  const plainDots = [];
+  for (const dot of dots) {
+    if (dot.username && typeof loadAvatarIfNeeded === 'function') {
+      loadAvatarIfNeeded(dot.username);
+    }
+    if (dot.username && typeof avatarCache !== 'undefined' && avatarCache[dot.username]) {
+      dot.src = avatarUrl(dot.username);
+      avatarDots.push(dot);
+    } else {
+      plainDots.push(dot);
+    }
+  }
+  // Colored dots: larger for avatar-backed dots (serves as colored border).
   marks.push(
     Plot.dot(dots, {
       x: "x",
       y: "y",
       fill: (d) => d.color,
-      r: 6,
+      r: (d) => avatarDots.includes(d) ? 12 : 6,
     }),
   );
+
+  // Overlay avatar images on dots that have them.
+  if (avatarDots.length > 0) {
+    marks.push(
+      Plot.image(avatarDots, {
+        x: "x",
+        y: "y",
+        src: "src",
+        r: 10,
+      }),
+    );
+  }
 
   const chart = Plot.plot({
     width: graphContainer.clientWidth,

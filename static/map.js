@@ -22,12 +22,24 @@ function LeafletMap() {
     map.fitBounds(polyline.getBounds()); // Zoom to the track
   }
 
-  function setMarker(position, trackIndex) {
+  function setMarker(position, trackIndex, username) {
     const color = getColor(trackIndex);
+    const hasAvatar = username && typeof avatarCache !== 'undefined' && avatarCache[username];
+    let html;
+    if (hasAvatar) {
+      const src = avatarUrl(username);
+      html = `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid ${color}; overflow: hidden; margin: -14px 0 0 -14px;">` +
+        `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" />` +
+        `</div>`;
+    } else {
+      html = `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`;
+    }
     const marker = L.marker([position.lat, position.lon], {
       icon: L.divIcon({
         className: "my-div-icon",
-        html: `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`,
+        html: html,
+        iconSize: hasAvatar ? [28, 28] : [10, 10],
+        iconAnchor: hasAvatar ? [14, 14] : [5, 5],
       }),
     }).addTo(map);
     markers.push(marker);

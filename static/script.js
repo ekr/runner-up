@@ -16,6 +16,21 @@ let dataToSharedBy = [];
 // Map from data index to the custom label (null if not set).
 let dataToLabel = [];
 
+// Cache of avatar load state: username -> HTMLImageElement (loaded) or null (failed/pending).
+let avatarCache = {};
+
+// Kick off an avatar load for a username if not already attempted.
+// The image will be available in avatarCache on subsequent redraws.
+function loadAvatarIfNeeded(username) {
+  if (!username || username in avatarCache) return;
+  avatarCache[username] = null; // mark as pending
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => { avatarCache[username] = img; updateMarkers(); };
+  img.onerror = () => { avatarCache[username] = null; };
+  img.src = avatarUrl(username);
+}
+
 // The tracks to actually plot transformed into ready-to-plot
 // version.
 // Using var so it's accessible via window.tracks for testing.
@@ -174,7 +189,7 @@ function addFileListener(name) {
           dataToStorageId.push(null);
         }
         dataToIsShared.push(false);
-        dataToSharedBy.push(null);
+        dataToSharedBy.push(isLoggedIn() ? getUsername() : null);
         dataToLabel.push(null);
         dataUpdated();
         if (isLoggedIn()) {
@@ -209,7 +224,9 @@ function updateMarkers() {
     let track = tracks[i];
     const position = getPositionAtTime(track, currentTime);
     if (position) {
-      lmap.setMarker(position, i);
+      const username = dataToSharedBy[i] || null;
+      if (username) loadAvatarIfNeeded(username);
+      lmap.setMarker(position, i, username);
     }
   }
 
@@ -261,7 +278,7 @@ async function populateSavedTracks() {
       } else {
         displayText = "Unknown date";
       }
-      trackEntries.push({ entry, displayText, isShared: false, sharedBy: null, label: entry.label || null });
+      trackEntries.push({ entry, displayText, isShared: false, sharedBy: getUsername(), label: entry.label || null });
     }
 
     for (const entry of shared) {
@@ -605,7 +622,7 @@ async function loadTracksFromHash(hash) {
       // Determine if this is someone else's track.
       const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
       dataToIsShared.push(!!isOthers);
-      dataToSharedBy.push(isOthers ? entry.owner : null);
+      dataToSharedBy.push(entry.owner || null);
       dataToLabel.push(null);
 
       // If logged in, save this track to our shared tracks list.
