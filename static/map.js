@@ -28,7 +28,7 @@ function LeafletMap() {
     let html;
     if (hasAvatar) {
       const src = avatarUrl(username);
-      html = `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid ${color}; overflow: hidden; margin: -14px 0 0 -14px;">` +
+      html = `<div style="width: 28px; height: 28px; border-radius: 50%; border: 3px solid ${color}; overflow: hidden;">` +
         `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" />` +
         `</div>`;
     } else {
