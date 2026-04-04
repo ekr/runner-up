@@ -26,7 +26,11 @@ function loadAvatarIfNeeded(username) {
   avatarCache[username] = null; // mark as pending
   const img = new Image();
   img.crossOrigin = "anonymous";
-  img.onload = () => { avatarCache[username] = img; updateMarkers(); };
+  img.onload = () => {
+    avatarCache[username] = img;
+    refreshLegend();
+    updateMarkers();
+  };
   img.onerror = () => { avatarCache[username] = null; };
   img.src = avatarUrl(username);
 }
@@ -163,9 +167,17 @@ function displayTracks() {
   }
   const displayNames = data.map((_, i) => getTrackDisplayName(i));
   const dateStrings = data.map((_, i) => getStartDate(data[i]));
-  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel);
+  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, dataToSharedBy);
   initializeSlider();
   updateMarkers();
+}
+
+// Rebuild just the legend (e.g., after an avatar finishes loading).
+function refreshLegend() {
+  if (!tracks.length) return;
+  const displayNames = data.map((_, i) => getTrackDisplayName(i));
+  const dateStrings = data.map((_, i) => getStartDate(data[i]));
+  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, dataToSharedBy);
 }
 
 // Listen for new files to be added.

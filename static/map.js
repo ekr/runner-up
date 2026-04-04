@@ -58,7 +58,7 @@ function LeafletMap() {
     }
   }
 
-  function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels) {
+  function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels, sharedByArr) {
     const legendContainer = document.getElementById("legend-container");
     clearChildren(legendContainer);
     for (let i in tracks) {
@@ -69,7 +69,24 @@ function LeafletMap() {
       const legendText = clone.querySelector("#legend-text");
       legendText.textContent = displayNames ? displayNames[i] : getStartDate(track);
       legendText.title = dateStrings ? dateStrings[i] : getStartDate(track);
-      clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
+      const iconEl = clone.querySelector("#legend-icon");
+      const username = sharedByArr && sharedByArr[i];
+      const hasAvatar = username && typeof avatarCache !== 'undefined' && avatarCache[username];
+      if (hasAvatar) {
+        iconEl.style.backgroundColor = "transparent";
+        iconEl.style.borderRadius = "50%";
+        iconEl.style.border = `2px solid ${getColor(i)}`;
+        iconEl.style.overflow = "hidden";
+        iconEl.style.padding = "0";
+        const img = document.createElement("img");
+        img.src = avatarUrl(username);
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+        iconEl.appendChild(img);
+      } else {
+        iconEl.style.backgroundColor = getColor(i);
+      }
       let trackId = i;
 
       // Inline rename on click (requires a storage ID and being logged in).
