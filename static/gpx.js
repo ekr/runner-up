@@ -7,6 +7,10 @@ function parseGPX(gpxData) {
   if (points.length === 0) {
     return track; // Return empty track if no points
   }
+  if (!points[0].querySelector("time")) {
+    alert("This GPX file has no time data and cannot be used.");
+    return track;
+  }
   const startTime = new Date(points[0].querySelector("time").textContent);
   const startTimeMilliseconds = startTime.getTime();
   let cumulativeDistance = 0;
