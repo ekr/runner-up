@@ -51,7 +51,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     // Legend should now show the new name
-    await expect(legendText).toHaveText('Morning Run');
+    await expect(legendText).toHaveText('Morning Run (testuser)');
     // Tooltip should still show the date
     await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
   });
@@ -71,7 +71,7 @@ test.describe('Track Labels', () => {
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Old Name');
+    await expect(legendText).toHaveText('Old Name (testuser)');
 
     // Click to edit, clear the name, press Enter
     await legendText.click();
