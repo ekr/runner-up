@@ -135,6 +135,46 @@ test.describe('Track with Extra Loop', () => {
     // Both markers should be visible
     await expect(page.locator(selectors.mapMarker)).toHaveCount(2, { timeout: 5000 });
   });
+
+  test('overlapping-only mode marks region boundaries and draws dashed bridges', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // Only run the rest if alignment actually produced multiple regions —
+    // otherwise there are no gaps to bridge and nothing to assert.
+    const regionCount = await page.evaluate(() => {
+      return (window as any).alignment?.overlappingRegions?.length ?? 0;
+    });
+    test.skip(regionCount < 2, 'fixture produced fewer than 2 regions');
+
+    // Switch to overlapping-regions-only mode.
+    await page.selectOption('#display-mode-select', 'overlapping');
+    await page.waitForTimeout(200);
+
+    // gapBefore should be set on the first point of each region after the
+    // first, and never on the initial point.
+    const gapInfo = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      return tracks.map((t: any[]) => ({
+        first: !!t[0]?.gapBefore,
+        gaps: t.filter((p: any) => p.gapBefore).length,
+      }));
+    });
+    for (const info of gapInfo) {
+      expect(info.first).toBe(false);
+      expect(info.gaps).toBeGreaterThanOrEqual(1);
+    }
+
+    // Leaflet should have rendered at least one dashed polyline for the
+    // inter-region bridge (stroke-dasharray is set on the SVG <path>).
+    const dashedCount = await page.locator('#map path[stroke-dasharray]').count();
+    expect(dashedCount).toBeGreaterThanOrEqual(1);
+  });
 });
 
 test.describe('Hairpin Out-and-Back at Different Paces', () => {

@@ -13,13 +13,43 @@ function LeafletMap() {
 
   const markerGroup = L.featureGroup().addTo(map);
 
-  function drawTrack(track) {
-    const latlngs = track.map((point) => [point.lat, point.lon]);
-    const polyline = L.polyline(latlngs, {
-      color: getColor(i),
-      opacity: 0.5,
-    }).addTo(markerGroup);
-    map.fitBounds(polyline.getBounds()); // Zoom to the track
+  function drawTrack(track, trackIndex) {
+    const color = getColor(trackIndex);
+    const trackGroup = L.featureGroup().addTo(markerGroup);
+
+    // Walk the points, emitting a solid polyline for each contiguous run and
+    // a dashed, faded polyline for any bridge across a `gapBefore` point
+    // (regions stitched together by overlapping-only mode).
+    let currentSegment = [];
+    const flushSegment = () => {
+      if (currentSegment.length >= 2) {
+        L.polyline(currentSegment, {
+          color,
+          opacity: 0.5,
+        }).addTo(trackGroup);
+      }
+      currentSegment = [];
+    };
+
+    for (const point of track) {
+      const latlng = [point.lat, point.lon];
+      if (point.gapBefore && currentSegment.length > 0) {
+        const prev = currentSegment[currentSegment.length - 1];
+        flushSegment();
+        L.polyline([prev, latlng], {
+          color,
+          opacity: 0.25,
+          dashArray: "4 6",
+        }).addTo(trackGroup);
+      }
+      currentSegment.push(latlng);
+    }
+    flushSegment();
+
+    const bounds = trackGroup.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds); // Zoom to the track
+    }
   }
 
   function setMarker(position, trackIndex, username) {
