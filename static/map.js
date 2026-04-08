@@ -13,8 +13,8 @@ function LeafletMap() {
 
   const markerGroup = L.featureGroup().addTo(map);
 
-  function drawTrack(track) {
-    const color = getColor(i);
+  function drawTrack(track, trackIndex) {
+    const color = getColor(trackIndex);
     const trackGroup = L.featureGroup().addTo(markerGroup);
 
     // Walk the points, emitting a solid polyline for each contiguous run and

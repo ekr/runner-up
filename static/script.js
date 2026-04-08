@@ -157,13 +157,13 @@ function displayTracks() {
   lmap.clear();
   removeGraphs();
 
-  for (i in tracks) {
+  for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i];
 
     minTime = Math.min(track[0].time, minTime);
     maxTime = Math.max(track[track.length - 1].time, maxTime);
 
-    lmap.drawTrack(track);
+    lmap.drawTrack(track, i);
   }
   const displayNames = data.map((_, i) => getTrackDisplayName(i));
   const dateStrings = data.map((_, i) => getStartDate(data[i]));
