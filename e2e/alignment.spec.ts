@@ -175,6 +175,64 @@ test.describe('Track with Extra Loop', () => {
     const dashedCount = await page.locator('#map path[stroke-dasharray]').count();
     expect(dashedCount).toBeGreaterThanOrEqual(1);
   });
+
+  test('display mode persists across reload', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // Only run the rest if alignment actually produced multiple regions —
+    // otherwise the display-mode control is hidden and there's nothing to toggle.
+    const regionCount = await page.evaluate(() => {
+      return (window as any).alignment?.overlappingRegions?.length ?? 0;
+    });
+    test.skip(regionCount < 2, 'fixture produced fewer than 2 regions');
+
+    // After uploading two tracks the URL hash is rewritten to contain both
+    // track IDs, so a reload will restore them automatically via the API
+    // mock (this mirrors the real user scenario in the bug report).
+    await expect.poll(() => page.evaluate(() => window.location.hash.length))
+      .toBeGreaterThan(1);
+
+    // Switch to overlapping-regions-only mode.
+    await page.selectOption('#display-mode-select', 'overlapping');
+    await page.waitForTimeout(200);
+
+    // The change should have been persisted to localStorage.
+    expect(
+      await page.evaluate(() => localStorage.getItem('runnerup:displayMode'))
+    ).toBe('overlapping');
+
+    // Reload the page WITHOUT clearing localStorage — both the persisted
+    // display mode and the hash-based track restore should survive.
+    await page.reload();
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    // After reload: the <select> UI, the JS variable, and the actual render
+    // must all agree on 'overlapping'.
+    await expect(page.locator('#display-mode-select')).toHaveValue('overlapping');
+    expect(await page.evaluate(() => (window as any).displayMode)).toBe('overlapping');
+    const dashedCount = await page.locator('#map path[stroke-dasharray]').count();
+    expect(dashedCount).toBeGreaterThanOrEqual(1);
+
+    // Flip back to 'full' and verify the reverse direction persists too.
+    await page.selectOption('#display-mode-select', 'full');
+    await page.waitForTimeout(200);
+    expect(
+      await page.evaluate(() => localStorage.getItem('runnerup:displayMode'))
+    ).toBe('full');
+
+    await page.reload();
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+    await page.waitForTimeout(500);
+    await expect(page.locator('#display-mode-select')).toHaveValue('full');
+    expect(await page.evaluate(() => (window as any).displayMode)).toBe('full');
+    expect(await page.locator('#map path[stroke-dasharray]').count()).toBe(0);
+  });
 });
 
 test.describe('Hairpin Out-and-Back at Different Paces', () => {
