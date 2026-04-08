@@ -54,7 +54,9 @@ var alignment = null;
 var all_match = null;
 
 // Display mode: 'full' shows entire tracks, 'overlapping' shows only overlapping regions.
-let displayMode = 'full';
+// Persisted in localStorage so the choice survives a page reload.
+// Using var so it's accessible via window.displayMode for testing.
+var displayMode = localStorage.getItem('runnerup:displayMode') === 'overlapping' ? 'overlapping' : 'full';
 
 // The map object.
 let lmap = undefined;
@@ -598,8 +600,12 @@ document.addEventListener("DOMContentLoaded", () => {
 function addDisplayModeListener() {
   const modeSelect = document.querySelector("#display-mode-select");
   if (modeSelect) {
+    // Sync the DOM to the restored value so the <select> doesn't drift from
+    // the JS variable via browser form autofill.
+    modeSelect.value = displayMode;
     modeSelect.addEventListener("change", (e) => {
       displayMode = e.target.value;
+      localStorage.setItem('runnerup:displayMode', displayMode);
       displayTracks();
     });
   }
