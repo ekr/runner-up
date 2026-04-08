@@ -344,7 +344,10 @@ function extractAndHarmonizeRegions(track, regions, trackIndex) {
         time: point.time - timeOffset,
         distance: cumulativeHarmonizedDistance + scaledDistance,
         normalizedDistance: cumulativeHarmonizedDistance + scaledDistance,
-        originalDistance: point.distance
+        originalDistance: point.distance,
+        // Mark the first point of each region after the first so the map
+        // renderer can draw the bridge to the previous region as a gap.
+        gapBefore: i === range[0] && result.length > 0
       });
     }
 
