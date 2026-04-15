@@ -620,6 +620,23 @@ async function loadTracksFromHash(hash) {
   const parts = hash.slice(1).split('/').filter(Boolean);
   if (parts.length === 0 || parts.length > 2) return;
 
+  // Pre-fetch label lookups for logged-in users so custom labels survive reload.
+  let storedLabelMap = new Map();
+  let sharedLabelMap = new Map();
+  if (isLoggedIn()) {
+    try {
+      const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
+      for (const entry of stored) {
+        if (entry.label) storedLabelMap.set(entry.id, entry.label);
+      }
+      for (const entry of shared) {
+        if (entry.label) sharedLabelMap.set(entry.trackId, entry.label);
+      }
+    } catch (err) {
+      console.error("Failed to fetch label data for hash tracks:", err);
+    }
+  }
+
   for (const trackId of parts) {
     try {
       const entry = await getGPXById(trackId);
@@ -635,7 +652,15 @@ async function loadTracksFromHash(hash) {
       const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
       dataToIsShared.push(!!isOthers);
       dataToSharedBy.push(entry.owner || null);
-      dataToLabel.push(null);
+
+      // Restore any custom label the user assigned to this track.
+      let label = null;
+      if (isLoggedIn()) {
+        label = isOthers
+          ? (sharedLabelMap.get(trackId) || null)
+          : (storedLabelMap.get(trackId) || null);
+      }
+      dataToLabel.push(label);
 
       // If logged in, save this track to our shared tracks list.
       // The server will skip if we already own it or have it shared.
