@@ -121,9 +121,9 @@ function LeafletMap() {
 
       // Inline rename on click (requires a storage ID and being logged in).
       const canRename = storageIds && storageIds[i] && typeof isLoggedIn === 'function' && isLoggedIn();
+      const renameBtn = clone.querySelector(".rename-button");
       if (canRename) {
-        legendText.style.cursor = "pointer";
-        legendText.addEventListener("click", () => {
+        const startRename = () => {
           const currentLabel = labels ? labels[i] : null;
           const input = document.createElement("input");
           input.type = "text";
@@ -134,6 +134,7 @@ function LeafletMap() {
           const commitRename = () => {
             const newLabel = input.value.trim();
             input.replaceWith(legendText);
+            renameBtn.style.display = "";
             renameTrack(parseInt(trackId), newLabel || null);
           };
 
@@ -143,13 +144,20 @@ function LeafletMap() {
             if (e.key === "Escape") {
               input.removeEventListener("blur", commitRename);
               input.replaceWith(legendText);
+              renameBtn.style.display = "";
             }
           });
 
           legendText.replaceWith(input);
+          renameBtn.style.display = "none";
           input.focus();
           input.select();
-        });
+        };
+
+        legendText.style.cursor = "pointer";
+        legendText.addEventListener("click", startRename);
+        renameBtn.style.display = "";
+        renameBtn.addEventListener("click", startRename);
       }
 
       clone.querySelector(".delete-button").addEventListener("click", (e) => {
