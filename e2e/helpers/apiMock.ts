@@ -444,16 +444,26 @@ export async function setupApiMock(page: Page) {
       return;
     }
 
-    // GET /tracks/{id} — public, no auth required
+    // GET /tracks/{id} — public, no auth required; returns label if authenticated
     if (method === 'GET' && path.startsWith('/tracks/')) {
       const trackId = path.slice('/tracks/'.length);
       const track = tracks.find((t) => t.id === trackId);
       if (track) {
+        // Return label if authenticated user owns the track or has it in shared list.
+        let label: string | null = null;
+        if (isAuthenticated(request)) {
+          if (track.owner === TEST_USERNAME) {
+            label = track.meta.label ?? null;
+          } else {
+            const shared = sharedTracks.find((s) => s.trackId === trackId);
+            label = shared?.label ?? null;
+          }
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           headers: corsHeaders,
-          body: JSON.stringify({ id: track.id, data: track.data, owner: track.owner }),
+          body: JSON.stringify({ id: track.id, data: track.data, owner: track.owner, label }),
         });
       } else {
         await route.fulfill({

@@ -635,7 +635,7 @@ async function loadTracksFromHash(hash) {
       const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
       dataToIsShared.push(!!isOthers);
       dataToSharedBy.push(entry.owner || null);
-      dataToLabel.push(null);
+      dataToLabel.push(entry.label || null);
 
       // If logged in, save this track to our shared tracks list.
       // The server will skip if we already own it or have it shared.

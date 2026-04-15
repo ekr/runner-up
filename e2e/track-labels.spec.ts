@@ -147,4 +147,19 @@ test.describe('Track Labels', () => {
     const details = trackItem.locator('.track-item-details');
     await expect(details).toContainText('Jan 15, 2024');
   });
+
+  test('should restore custom label on reload via hash URL', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await mock.seedTracks([track1Data]);
+    mock.setTrackLabel(track1Data, 'My Reload Label');
+    const trackId = mock.getTrackId(track1Data);
+    await page.reload();
+
+    // Navigate to the track via its hash URL (simulates sharing/reloading via URL).
+    await page.goto(`/#${trackId}`);
+
+    // The legend should show the custom label, not the date.
+    const legendText = page.locator('#legend-container #legend-text');
+    await expect(legendText).toContainText('My Reload Label', { timeout: 5000 });
+  });
 });

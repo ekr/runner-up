@@ -1,4 +1,4 @@
-import { handleTrackRoutes, handleSharedTrackRoutes, handleSettingsRoutes, handleAvatarRoutes, handleAvatarGet, readTrackMeta } from './handlers';
+import { handleTrackRoutes, handleSharedTrackRoutes, handleSettingsRoutes, handleAvatarRoutes, handleAvatarGet, readTrackMeta, readIndex, readShares } from './handlers';
 import { handleRegister, handleLogin, handleChangePassword, handleDeleteAccount, extractUserId } from './auth';
 
 export interface Env {
@@ -120,11 +120,28 @@ export default {
         if (!obj) {
           return jsonResponse({ error: 'Not found' }, 404, cors);
         }
+        const auth = await extractUserId(request, env);
         const [data, trackMeta] = await Promise.all([
           obj.text(),
           readTrackMeta(env.GPX_BUCKET, trackId),
         ]);
-        return jsonResponse({ id: trackId, data, owner: trackMeta?.owner ?? null }, 200, cors);
+
+        let label: string | null = null;
+        if (auth && trackMeta) {
+          if (auth.username === trackMeta.owner) {
+            // Authenticated user is the owner — look up label from their index.
+            const index = await readIndex(env.GPX_BUCKET, auth.userId);
+            const entry = index.find((e) => e.id === trackId);
+            label = entry?.label ?? null;
+          } else {
+            // Authenticated user is a viewer — look up label from their shares list.
+            const shares = await readShares(env.GPX_BUCKET, auth.userId);
+            const entry = shares.find((e) => e.trackId === trackId);
+            label = entry?.label ?? null;
+          }
+        }
+
+        return jsonResponse({ id: trackId, data, owner: trackMeta?.owner ?? null, label }, 200, cors);
       }
 
       // All other /tracks routes require authentication.
