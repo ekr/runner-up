@@ -3,17 +3,9 @@ import { selectors } from './helpers/selectors';
 import { setupApiMock } from './helpers/apiMock';
 import { clearLocalStorageNow } from './helpers/localStorage';
 import * as path from 'path';
+import { fixturesDir, FIVE_FIXTURE_NAMES } from './helpers/fixtures';
 
-const fixturesDir = path.join(__dirname, 'fixtures');
-
-// Five distinct fixture files used to reach MAX_TRACKS (5).
-const FIVE_FIXTURES = [
-  'track1.gpx',
-  'track2.gpx',
-  'out-and-back-short.gpx',
-  'out-and-back-long.gpx',
-  'main-route-no-loop.gpx',
-];
+const FIVE_FIXTURES = FIVE_FIXTURE_NAMES;
 
 test.describe('Add-track visibility', () => {
   test.describe('logged out', () => {

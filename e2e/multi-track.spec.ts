@@ -4,17 +4,9 @@ import { setupApiMock } from './helpers/apiMock';
 import { clearLocalStorageNow } from './helpers/localStorage';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fixturesDir, FIVE_FIXTURE_NAMES } from './helpers/fixtures';
 
-const fixturesDir = path.join(__dirname, 'fixtures');
-
-// Five distinct fixture files (MAX_TRACKS = 5).
-const FIVE_FIXTURES = [
-  'track1.gpx',
-  'track2.gpx',
-  'out-and-back-short.gpx',
-  'out-and-back-long.gpx',
-  'main-route-no-loop.gpx',
-];
+const FIVE_FIXTURES = FIVE_FIXTURE_NAMES;
 
 test.describe('Multi-track (N > 2)', () => {
   let mockApi: Awaited<ReturnType<typeof setupApiMock>>;

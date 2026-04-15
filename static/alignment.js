@@ -427,13 +427,16 @@ function getAlignmentSummary(alignment) {
     return 'No alignment found';
   }
 
-  const { overlappingRegions, hasMultipleSegments, totalHarmonizedDistance } = alignment;
+  const { overlappingRegions, hasMultipleSegments, hasCommonOverlap, totalHarmonizedDistance } = alignment;
 
   const segments = overlappingRegions.length;
   const distanceKm = (totalHarmonizedDistance / 1000).toFixed(2);
 
   if (hasMultipleSegments) {
     return `${segments} overlapping segments (${distanceKm} km total)`;
+  } else if (hasCommonOverlap) {
+    const trackCount = (alignment.pairwiseAlignments?.length ?? 0) + 1;
+    return `${trackCount} tracks, common overlap (${distanceKm} km)`;
   } else {
     return `Fully aligned (${distanceKm} km)`;
   }
