@@ -5,7 +5,7 @@ function clearChildren(node) {
 }
 
 function getColor(i) {
-  const colors = ["red", "blue", "green", "orange"];
+  const colors = ["red", "blue", "green", "orange", "purple"];
 
-  return colors[i % 4];
+  return colors[i % colors.length];
 }

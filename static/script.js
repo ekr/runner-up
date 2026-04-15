@@ -1,6 +1,9 @@
 let minTime = Infinity;
 let maxTime = -Infinity;
 
+// Maximum number of tracks that can be loaded simultaneously.
+const MAX_TRACKS = 5;
+
 // The raw GPX data we loaded in.
 let data = [];
 
@@ -80,20 +83,57 @@ function dataUpdated() {
     removeGraphs();
     return;
   }
-  // TODO(ekr@rtfm.com): Handle >2 tracks.
-  if (data.length > 1) {
-    // Use DTW alignment (handles different sampling rates correctly)
+
+  if (data.length > 2) {
+    // N > 2 tracks: find common overlap across all pairwise alignments with track[0].
+    const pairwiseAlignments = data.slice(1).map(t => findOverlappingRegions(data[0], t, {
+      threshold: 0.03,
+      minSegmentPoints: 3
+    }));
+
+    if (pairwiseAlignments.some(a => !a || !a.overlappingRegions)) {
+      alignment = null;
+      segments = null;
+    } else {
+      const intersection = intersectOverlapRanges(pairwiseAlignments);
+      if (!intersection) {
+        alignment = null;
+        segments = null;
+      } else {
+        const t1dist = data[0][intersection.track1Range[1]].distance -
+                       data[0][intersection.track1Range[0]].distance;
+        const t2dist = data[1][intersection.perTrackRanges[0][1]].distance -
+                       data[1][intersection.perTrackRanges[0][0]].distance;
+        alignment = {
+          commonOverlap: intersection,
+          pairwiseAlignments,
+          hasCommonOverlap: true,
+          hasMultipleSegments: false,
+          overlappingRegions: [{
+            track1Range: intersection.track1Range,
+            track2Range: intersection.perTrackRanges[0],
+            track1Distance: t1dist,
+            track2Distance: t2dist,
+            harmonizedDistance: (t1dist + t2dist) / 2
+          }],
+          totalHarmonizedDistance: t1dist
+        };
+        segments = [intersection.track1Range];
+      }
+    }
+  } else if (data.length === 2) {
+    // Existing 2-track DTW alignment.
     alignment = findOverlappingRegions(data[0], data[1], {
       threshold: 0.03,
       minSegmentPoints: 3
     });
-    // Derive segments from alignment for backward compatibility
     if (alignment && alignment.overlappingRegions) {
       segments = alignment.overlappingRegions.map(r => [r.track1Range[0], r.track1Range[1]]);
     } else {
       segments = null;
     }
   } else {
+    // Single track.
     segments = [[0, data[0].length - 1]];
     alignment = null;
   }
@@ -112,6 +152,16 @@ function dataUpdated() {
         summary.textContent = getAlignmentSummary(alignment);
       }
     }
+  } else if (alignment.hasCommonOverlap) {
+    // N > 2 tracks with a single common overlap — show mode toggle.
+    console.log("Common overlap found for N tracks");
+    if (display_mode) {
+      display_mode.style.display = "flex";
+      const summary = document.querySelector("#alignment-summary");
+      if (summary) {
+        summary.textContent = getAlignmentSummary(alignment);
+      }
+    }
   } else {
     console.log("All segments match");
     if (display_mode) display_mode.style.display = "none";
@@ -119,7 +169,7 @@ function dataUpdated() {
 
   // Show/hide the file picker depending on track count.
   document.querySelector("#add-track").style.display =
-    data.length >= 2 ? "none" : "flex";
+    data.length >= MAX_TRACKS ? "none" : "flex";
 
   try {
     displayTracks();
@@ -137,8 +187,8 @@ function displayTracks() {
   if (!segments) {
     all_match = false;
   } else if (segments.length > 1) {
+    // Multiple segments — only arises in the 2-track case.
     if (displayMode === 'overlapping' && alignment && tracks.length === 2) {
-      // Use new alignment-based harmonization for overlapping regions only
       const harmonized = createHarmonizedTracks(tracks[0], tracks[1], alignment, true);
       tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
       all_match = true;
@@ -146,8 +196,15 @@ function displayTracks() {
       all_match = false;
     }
   } else {
-    normalizeTracks(tracks);
-    all_match = true;
+    // Single segment (full overlap for 2-track, or intersected common overlap for N-track).
+    if (displayMode === 'overlapping' && alignment && alignment.hasCommonOverlap) {
+      // N > 2 tracks: extract common overlap and harmonize distances.
+      tracks = createHarmonizedTracksN(tracks, alignment);
+      all_match = true;
+    } else {
+      normalizeTracks(tracks);
+      all_match = true;
+    }
   }
   tracks.forEach((track) => {
     track.forEach((point) => {
@@ -473,7 +530,7 @@ function updateAuthUI() {
   }
 
   // Always explicitly set add-track visibility based on track count.
-  addTrack.style.display = data.length < 2 ? "flex" : "none";
+  addTrack.style.display = data.length < MAX_TRACKS ? "flex" : "none";
 }
 
 // Set up auth event listeners.
@@ -621,25 +678,26 @@ function updateUrlHash() {
   }
 }
 
-// Load tracks from the URL hash (e.g., #trackId1/trackId2).
+// Load tracks from the URL hash (e.g., #trackId1/trackId2/trackId3).
 async function loadTracksFromHash(hash) {
-  const parts = hash.slice(1).split('/').filter(Boolean);
-  if (parts.length === 0 || parts.length > 2) return;
+  let parts = hash.slice(1).split('/').filter(Boolean);
+  if (parts.length === 0) return;
+  if (parts.length > MAX_TRACKS) {
+    console.warn(`Hash contains ${parts.length} track IDs; truncating to first ${MAX_TRACKS}.`);
+    parts = parts.slice(0, MAX_TRACKS);
+  }
 
   // Pre-fetch label lookups for logged-in users so custom labels survive reload.
+  // getAllStoredGPX/getSharedTracks both return [] on error, so no try/catch needed.
   let storedLabelMap = new Map();
   let sharedLabelMap = new Map();
   if (isLoggedIn()) {
-    try {
-      const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
-      for (const entry of stored) {
-        if (entry.label) storedLabelMap.set(entry.id, entry.label);
-      }
-      for (const entry of shared) {
-        if (entry.label) sharedLabelMap.set(entry.trackId, entry.label);
-      }
-    } catch (err) {
-      console.error("Failed to fetch label data for hash tracks:", err);
+    const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
+    for (const entry of stored) {
+      if (entry.label) storedLabelMap.set(entry.id, entry.label);
+    }
+    for (const entry of shared) {
+      if (entry.label) sharedLabelMap.set(entry.trackId, entry.label);
     }
   }
 
@@ -660,12 +718,9 @@ async function loadTracksFromHash(hash) {
       dataToSharedBy.push(entry.owner || null);
 
       // Restore any custom label the user assigned to this track.
-      let label = null;
-      if (isLoggedIn()) {
-        label = isOthers
-          ? (sharedLabelMap.get(trackId) || null)
-          : (storedLabelMap.get(trackId) || null);
-      }
+      const label = isLoggedIn()
+        ? (isOthers ? sharedLabelMap.get(trackId) : storedLabelMap.get(trackId)) ?? null
+        : null;
       dataToLabel.push(label);
 
       // If logged in, save this track to our shared tracks list.
