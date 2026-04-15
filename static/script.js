@@ -260,7 +260,7 @@ function addFileListener(name) {
           dataToStorageId.push(null);
         }
         dataToIsShared.push(false);
-        dataToSharedBy.push(isLoggedIn() ? getUsername() : null);
+        dataToSharedBy.push(null);
         dataToLabel.push(null);
         dataUpdated();
         if (isLoggedIn()) {
@@ -349,7 +349,7 @@ async function populateSavedTracks() {
       } else {
         displayText = "Unknown date";
       }
-      trackEntries.push({ entry, displayText, isShared: false, sharedBy: getUsername(), label: entry.label || null });
+      trackEntries.push({ entry, displayText, isShared: false, sharedBy: null, label: entry.label || null });
     }
 
     for (const entry of shared) {
@@ -715,7 +715,7 @@ async function loadTracksFromHash(hash) {
       // Determine if this is someone else's track.
       const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
       dataToIsShared.push(!!isOthers);
-      dataToSharedBy.push(entry.owner || null);
+      dataToSharedBy.push(isLoggedIn() ? (isOthers ? entry.owner : null) : (entry.owner || null));
 
       // Restore any custom label the user assigned to this track.
       const label = isLoggedIn()

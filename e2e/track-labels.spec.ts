@@ -50,8 +50,8 @@ test.describe('Track Labels', () => {
     await input.fill('Morning Run');
     await input.press('Enter');
 
-    // Legend should now show the new name
-    await expect(legendText).toHaveText('Morning Run (testuser)');
+    // Legend should now show the new name (no username suffix for own track)
+    await expect(legendText).toHaveText('Morning Run');
     // Tooltip should still show the date
     await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
   });
@@ -77,7 +77,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Evening Run (testuser)');
+    await expect(legendText).toHaveText('Evening Run');
     // Pencil should be visible again
     await expect(pencil).toBeVisible();
   });
@@ -97,7 +97,7 @@ test.describe('Track Labels', () => {
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Old Name (testuser)');
+    await expect(legendText).toHaveText('Old Name');
 
     // Click to edit, clear the name, press Enter
     await legendText.click();

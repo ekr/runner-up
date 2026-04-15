@@ -28,7 +28,7 @@ test.describe('Hash Reload Labels', () => {
 
     // Legend should show the custom label, not the date.
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('My Custom Run (testuser)');
+    await expect(legendText).toHaveText('My Custom Run');
   });
 
   test('should restore custom label for shared track loaded via URL hash', async ({ page }) => {

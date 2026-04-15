@@ -20,20 +20,19 @@ test.describe('Avatar display on map and graph', () => {
     await clearLocalStorageNow(page);
   });
 
-  test('shows avatar on map marker when user has an avatar', async ({ page }) => {
+  test('does not show avatar on map marker for own uploaded track', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
 
-    // Upload a track.
+    // Upload a track owned by the current user.
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // Wait for avatar to load and trigger redraw.
-    const avatarMarker = page.locator('.my-div-icon img');
-    await expect(avatarMarker).toHaveCount(1, { timeout: 5000 });
-    await expect(avatarMarker).toHaveAttribute('src', /\/avatar\//);
+    // Own track: no avatar image should appear on the map marker.
+    await expect(page.locator(selectors.mapMarker)).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.my-div-icon img')).toHaveCount(0);
   });
 
   test('shows plain dot on map marker when no avatar exists', async ({ page }) => {
@@ -50,7 +49,7 @@ test.describe('Avatar display on map and graph', () => {
     await expect(page.locator('.my-div-icon img')).toHaveCount(0);
   });
 
-  test('shows avatar in legend when user has an avatar', async ({ page }) => {
+  test('does not show avatar in legend for own uploaded track', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
@@ -59,10 +58,14 @@ test.describe('Avatar display on map and graph', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // Legend icon should contain an img.
-    const legendImg = page.locator('#legend-icon img');
-    await expect(legendImg).toHaveCount(1, { timeout: 5000 });
-    await expect(legendImg).toHaveAttribute('src', /\/avatar\//);
+    // Own track: no avatar image should appear in the legend, even though user has an avatar.
+    await expect(page.locator('#legend-icon img')).toHaveCount(0);
+    // The legend icon should use a background color instead.
+    const bgColor = await page.locator('#legend-icon').evaluate(
+      (el) => (el as HTMLElement).style.backgroundColor,
+    );
+    expect(bgColor).not.toBe('transparent');
+    expect(bgColor).not.toBe('');
   });
 
   test('shows colored square in legend when no avatar exists', async ({ page }) => {
@@ -83,7 +86,7 @@ test.describe('Avatar display on map and graph', () => {
     expect(bgColor).not.toBe('');
   });
 
-  test('shows avatar on elevation graph dot', async ({ page }) => {
+  test('does not show avatar on elevation graph dot for own uploaded track', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
@@ -92,14 +95,29 @@ test.describe('Avatar display on map and graph', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // The elevation graph should contain an <image> element from Plot.image.
-    const graphImage = page.locator('#graph svg image');
-    await expect(graphImage).toHaveCount(1, { timeout: 5000 });
+    // Own track: no avatar image should appear in the elevation graph.
+    await expect(page.locator('#graph svg image')).toHaveCount(0, { timeout: 5000 });
   });
 
-  test('shows avatars for both users on shared track via hash', async ({ page }) => {
+  test('does not append username suffix in legend for own uploaded track', async ({ page }) => {
     const mock = await setupApiMock(page);
-    // Seed track1 as owned by testuser, track2 as owned by alice.
+    mock.seedAvatar(TINY_PNG, 'image/png');
+    await page.reload();
+
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    // Legend text must not contain the username in parentheses.
+    const legendText = await page.locator('#legend-text').first().textContent();
+    expect(legendText).not.toContain('(testuser)');
+    // No avatar image in legend.
+    await expect(page.locator('#legend-icon img')).toHaveCount(0);
+  });
+
+  test('shows avatar only for other user when loading tracks via hash', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    // Seed track1 as owned by testuser (the logged-in user), track2 as owned by alice.
     await mock.seedTracks([track1Data], 'testuser');
     await mock.seedTracks([track2Data], 'alice');
 
@@ -116,16 +134,16 @@ test.describe('Avatar display on map and graph', () => {
 
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
 
-    // Both map markers should have avatar images.
+    // Only alice's track should show an avatar (testuser's own track should not).
     const markerImgs = page.locator('.my-div-icon img');
-    await expect(markerImgs).toHaveCount(2, { timeout: 5000 });
+    await expect(markerImgs).toHaveCount(1, { timeout: 5000 });
 
-    // Both legend entries should have avatar images.
+    // Only alice's legend entry should have an avatar image.
     const legendImgs = page.locator('#legend-icon img');
-    await expect(legendImgs).toHaveCount(2, { timeout: 5000 });
+    await expect(legendImgs).toHaveCount(1, { timeout: 5000 });
   });
 
-  test('shows avatar for one user and plain dot for another', async ({ page }) => {
+  test('shows plain dot for own track and for other user with no avatar', async ({ page }) => {
     const mock = await setupApiMock(page);
     await mock.seedTracks([track1Data], 'testuser');
     await mock.seedTracks([track2Data], 'alice');
@@ -141,11 +159,11 @@ test.describe('Avatar display on map and graph', () => {
 
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
 
-    // One marker should have an avatar, one should not.
+    // Testuser's own track shows no avatar (it's theirs); alice has no avatar. No avatar images.
     const markerImgs = page.locator('.my-div-icon img');
-    await expect(markerImgs).toHaveCount(1, { timeout: 5000 });
+    await expect(markerImgs).toHaveCount(0, { timeout: 5000 });
 
-    // Two markers total.
+    // Two markers total (plain dots).
     await expect(page.locator(selectors.mapMarker)).toHaveCount(2);
   });
 });
