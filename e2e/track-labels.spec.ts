@@ -56,6 +56,32 @@ test.describe('Track Labels', () => {
     await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
   });
 
+  test('should rename track via legend pencil button', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    const pencil = page.locator('#legend-container .rename-button');
+    await expect(pencil).toBeVisible();
+    await pencil.click();
+
+    const input = page.locator('#legend-container input[type="text"]');
+    await expect(input).toBeVisible();
+    // Pencil should be hidden during edit
+    await expect(pencil).toBeHidden();
+
+    await input.fill('Evening Run');
+    await input.press('Enter');
+
+    const legendText = page.locator('#legend-container #legend-text');
+    await expect(legendText).toHaveText('Evening Run (testuser)');
+    // Pencil should be visible again
+    await expect(pencil).toBeVisible();
+  });
+
   test('should clear label when renaming to empty string', async ({ page }) => {
     const mock = await setupApiMock(page);
     await mock.seedTracks([track1Data]);
