@@ -4,7 +4,7 @@
   "description": "",
   "main": "script.js",
   "scripts": {
-    "test": "playwright test",
+    "test": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/run/current-system/sw/bin/chromium playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
   },
