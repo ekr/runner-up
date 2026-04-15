@@ -438,3 +438,115 @@ function getAlignmentSummary(alignment) {
     return `Fully aligned (${distanceKm} km)`;
   }
 }
+
+/**
+ * Intersect track[0] overlap ranges across all pairwise alignments to find a
+ * single common overlap window for N > 2 tracks.
+ *
+ * For each pairwise alignment (track[0] vs track[i+1]), computes the span of
+ * track[0] indices covered by any overlapping region in that pair. Then
+ * intersects those spans across all pairs. For the comparison tracks, finds
+ * the corresponding range by looking at which regions fall within the
+ * intersected track[0] window.
+ *
+ * @param {AlignmentResult[]} pairwiseAlignments - One per comparison track
+ * @param {number} minSegmentPoints - Minimum points for a valid intersection
+ * @returns {{ track1Range: number[], perTrackRanges: number[][] } | null}
+ */
+function intersectOverlapRanges(pairwiseAlignments, minSegmentPoints = 3) {
+  // Compute the span of track[0] indices for each pairwise alignment.
+  const spans = pairwiseAlignments.map(pa => {
+    const regions = pa.overlappingRegions;
+    return {
+      start: Math.min(...regions.map(r => r.track1Range[0])),
+      end: Math.max(...regions.map(r => r.track1Range[1]))
+    };
+  });
+
+  // Intersect all track[0] spans.
+  const intersectStart = Math.max(...spans.map(s => s.start));
+  const intersectEnd = Math.min(...spans.map(s => s.end));
+
+  if (intersectStart >= intersectEnd || intersectEnd - intersectStart < minSegmentPoints) {
+    return null;
+  }
+
+  // For each comparison track, find the track2 range that corresponds to the
+  // intersected track[0] window by looking at regions that overlap with it.
+  const perTrackRanges = pairwiseAlignments.map(pa => {
+    const overlapping = pa.overlappingRegions.filter(r =>
+      r.track1Range[0] <= intersectEnd && r.track1Range[1] >= intersectStart
+    );
+    if (overlapping.length === 0) return null;
+    return [
+      Math.min(...overlapping.map(r => r.track2Range[0])),
+      Math.max(...overlapping.map(r => r.track2Range[1]))
+    ];
+  });
+
+  if (perTrackRanges.some(r => r === null)) return null;
+
+  return {
+    track1Range: [intersectStart, intersectEnd],
+    perTrackRanges
+  };
+}
+
+/**
+ * Create harmonized tracks for N > 2 tracks using a common overlap region.
+ * Slices each track to its overlap window and normalizes distances against
+ * track[0]'s window length.
+ *
+ * @param {Object[][]} tracks - Array of tracks (already cloned)
+ * @param {Object} alignment - N-track alignment with hasCommonOverlap and commonOverlap
+ * @returns {Object[][]} Array of harmonized tracks, one per input track
+ */
+function createHarmonizedTracksN(tracks, alignment) {
+  if (!alignment || !alignment.hasCommonOverlap || !alignment.commonOverlap) {
+    return tracks;
+  }
+
+  const { track1Range, perTrackRanges } = alignment.commonOverlap;
+
+  // Reference: track[0]'s window distance.
+  const refStartDist = tracks[0][track1Range[0]].distance;
+  const refEndDist = tracks[0][track1Range[1]].distance;
+  const refDistance = refEndDist - refStartDist;
+
+  const result = [];
+
+  // Slice track[0] to its window; normalize so distances start at 0.
+  const sliced0 = [];
+  for (let i = track1Range[0]; i <= track1Range[1]; i++) {
+    const point = tracks[0][i];
+    sliced0.push({
+      ...point,
+      normalizedDistance: point.distance - refStartDist
+    });
+  }
+  result.push(sliced0);
+
+  // Slice each comparison track to its corresponding window, scaled to match
+  // track[0]'s reference distance.
+  for (let ci = 0; ci < perTrackRanges.length; ci++) {
+    const range = perTrackRanges[ci];
+    const track = tracks[ci + 1];
+    const tStartDist = track[range[0]].distance;
+    const tEndDist = track[range[1]].distance;
+    const tDistance = tEndDist - tStartDist;
+    const scaleFactor = tDistance > 0 ? refDistance / tDistance : 1;
+
+    const sliced = [];
+    for (let i = range[0]; i <= range[1]; i++) {
+      const point = track[i];
+      const distInSegment = point.distance - tStartDist;
+      sliced.push({
+        ...point,
+        normalizedDistance: distInSegment * scaleFactor
+      });
+    }
+    result.push(sliced);
+  }
+
+  return result;
+}
