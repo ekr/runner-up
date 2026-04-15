@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'fs';
 
-const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+const NIXOS_CHROMIUM = '/run/current-system/sw/bin/chromium';
+const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+  (existsSync(NIXOS_CHROMIUM) ? NIXOS_CHROMIUM : undefined);
 
 export default defineConfig({
   testDir: './e2e',
