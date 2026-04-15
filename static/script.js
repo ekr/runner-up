@@ -627,19 +627,16 @@ async function loadTracksFromHash(hash) {
   if (parts.length === 0 || parts.length > 2) return;
 
   // Pre-fetch label lookups for logged-in users so custom labels survive reload.
+  // getAllStoredGPX/getSharedTracks both return [] on error, so no try/catch needed.
   let storedLabelMap = new Map();
   let sharedLabelMap = new Map();
   if (isLoggedIn()) {
-    try {
-      const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
-      for (const entry of stored) {
-        if (entry.label) storedLabelMap.set(entry.id, entry.label);
-      }
-      for (const entry of shared) {
-        if (entry.label) sharedLabelMap.set(entry.trackId, entry.label);
-      }
-    } catch (err) {
-      console.error("Failed to fetch label data for hash tracks:", err);
+    const [stored, shared] = await Promise.all([getAllStoredGPX(), getSharedTracks()]);
+    for (const entry of stored) {
+      if (entry.label) storedLabelMap.set(entry.id, entry.label);
+    }
+    for (const entry of shared) {
+      if (entry.label) sharedLabelMap.set(entry.trackId, entry.label);
     }
   }
 
@@ -660,12 +657,9 @@ async function loadTracksFromHash(hash) {
       dataToSharedBy.push(entry.owner || null);
 
       // Restore any custom label the user assigned to this track.
-      let label = null;
-      if (isLoggedIn()) {
-        label = isOthers
-          ? (sharedLabelMap.get(trackId) || null)
-          : (storedLabelMap.get(trackId) || null);
-      }
+      const label = isLoggedIn()
+        ? (isOthers ? sharedLabelMap.get(trackId) : storedLabelMap.get(trackId)) ?? null
+        : null;
       dataToLabel.push(label);
 
       // If logged in, save this track to our shared tracks list.
