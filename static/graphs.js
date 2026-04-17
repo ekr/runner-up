@@ -122,6 +122,8 @@ function drawElevationGraph(currentTime) {
     }
   }
 
+  const showAvatars = dataToSharedBy.some(Boolean);
+  const graphViewerUsername = (typeof isLoggedIn === 'function' && isLoggedIn()) ? getUsername() : null;
   let dots = [];
 
   tracks.forEach((track, index) => {
@@ -140,7 +142,8 @@ function drawElevationGraph(currentTime) {
       distance,
       "elevation",
     );
-    const username = dataToSharedBy[index] || null;
+    const ownerUsername = dataToSharedBy[index] || null;
+    const username = showAvatars ? (ownerUsername || graphViewerUsername) : null;
     dots.push({
       x: Units().distanceValue(distance),
       y: Units().elevationValue(elevation),

@@ -91,6 +91,8 @@ function LeafletMap() {
   function createLegend(tracks, storageIds, displayNames, dateStrings, isSharedArr, labels, sharedByArr) {
     const legendContainer = document.getElementById("legend-container");
     clearChildren(legendContainer);
+    const showAvatars = sharedByArr && sharedByArr.some(Boolean);
+    const legendViewerUsername = (typeof isLoggedIn === 'function' && isLoggedIn()) ? getUsername() : null;
     for (let i in tracks) {
       const track = tracks[i];
 
@@ -100,8 +102,9 @@ function LeafletMap() {
       legendText.textContent = displayNames ? displayNames[i] : getStartDate(track);
       legendText.title = dateStrings ? dateStrings[i] : getStartDate(track);
       const iconEl = clone.querySelector("#legend-icon");
-      const username = sharedByArr && sharedByArr[i];
-      const hasAvatar = username && typeof avatarCache !== 'undefined' && avatarCache[username];
+      const ownerUsername = sharedByArr && sharedByArr[i];
+      const avatarUsername = showAvatars ? (ownerUsername || legendViewerUsername) : null;
+      const hasAvatar = avatarUsername && typeof avatarCache !== 'undefined' && avatarCache[avatarUsername];
       if (hasAvatar) {
         iconEl.style.backgroundColor = "transparent";
         iconEl.style.borderRadius = "50%";
@@ -109,7 +112,7 @@ function LeafletMap() {
         iconEl.style.overflow = "hidden";
         iconEl.style.padding = "0";
         const img = document.createElement("img");
-        img.src = avatarUrl(username);
+        img.src = avatarUrl(avatarUsername);
         img.style.width = "100%";
         img.style.height = "100%";
         img.style.objectFit = "cover";
