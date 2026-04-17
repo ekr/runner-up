@@ -112,13 +112,13 @@ test.describe('Avatar', () => {
       const removeBtn = page.locator(selectors.avatarRemoveBtn);
       await removeBtn.click();
 
+      // Wait for the async delete to complete — button hides after showAvatarPlaceholder()
+      await expect(page.locator(selectors.avatarRemoveBtn)).toBeHidden();
+
       // Preview should revert to placeholder
       const preview = page.locator(selectors.avatarPreview);
       const src = await preview.getAttribute('src');
       expect(src === null || src === '' || src.startsWith('data:')).toBeTruthy();
-
-      // Remove button should be hidden again
-      await expect(page.locator(selectors.avatarRemoveBtn)).toBeHidden();
     });
 
     test('should replace avatar with a new upload', async ({ page }) => {
