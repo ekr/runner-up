@@ -77,7 +77,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Evening Run (testuser)');
+    await expect(legendText).toHaveText('Evening Run');
     // Pencil should be visible again
     await expect(pencil).toBeVisible();
   });
