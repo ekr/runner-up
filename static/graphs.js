@@ -140,7 +140,7 @@ function drawElevationGraph(currentTime) {
       distance,
       "elevation",
     );
-    const username = dataToSharedBy[index] || null;
+    const username = (typeof shouldShowAvatars === 'function' && shouldShowAvatars()) ? (dataToSharedBy[index] || null) : null;
     dots.push({
       x: Units().distanceValue(distance),
       y: Units().elevationValue(elevation),
