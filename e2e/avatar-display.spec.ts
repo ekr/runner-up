@@ -20,20 +20,19 @@ test.describe('Avatar display on map and graph', () => {
     await clearLocalStorageNow(page);
   });
 
-  test('shows avatar on map marker when user has an avatar', async ({ page }) => {
+  test('shows no avatar on map marker for all-own view (even with avatar)', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
 
-    // Upload a track.
+    // Upload a track — all-own view, no avatars should appear.
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // Wait for avatar to load and trigger redraw.
-    const avatarMarker = page.locator('.my-div-icon img');
-    await expect(avatarMarker).toHaveCount(1, { timeout: 5000 });
-    await expect(avatarMarker).toHaveAttribute('src', /\/avatar\//);
+    // No avatar markers expected in all-own view.
+    await expect(page.locator(selectors.mapMarker)).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.my-div-icon img')).toHaveCount(0);
   });
 
   test('shows plain dot on map marker when no avatar exists', async ({ page }) => {
@@ -50,7 +49,7 @@ test.describe('Avatar display on map and graph', () => {
     await expect(page.locator('.my-div-icon img')).toHaveCount(0);
   });
 
-  test('shows avatar in legend when user has an avatar', async ({ page }) => {
+  test('shows no avatar in legend for all-own view (even with avatar)', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
@@ -59,10 +58,14 @@ test.describe('Avatar display on map and graph', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // Legend icon should contain an img.
-    const legendImg = page.locator('#legend-icon img');
-    await expect(legendImg).toHaveCount(1, { timeout: 5000 });
-    await expect(legendImg).toHaveAttribute('src', /\/avatar\//);
+    // Legend icon should NOT contain an img in all-own view.
+    await expect(page.locator('#legend-icon img')).toHaveCount(0);
+    // Icon should have a background color.
+    const bgColor = await page.locator('#legend-icon').evaluate(
+      (el) => (el as HTMLElement).style.backgroundColor,
+    );
+    expect(bgColor).not.toBe('transparent');
+    expect(bgColor).not.toBe('');
   });
 
   test('shows colored square in legend when no avatar exists', async ({ page }) => {
@@ -83,7 +86,7 @@ test.describe('Avatar display on map and graph', () => {
     expect(bgColor).not.toBe('');
   });
 
-  test('shows avatar on elevation graph dot', async ({ page }) => {
+  test('shows no avatar on elevation graph dot in all-own view', async ({ page }) => {
     const mock = await setupApiMock(page);
     mock.seedAvatar(TINY_PNG, 'image/png');
     await page.reload();
@@ -92,9 +95,9 @@ test.describe('Avatar display on map and graph', () => {
     await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
 
-    // The elevation graph should contain an <image> element from Plot.image.
+    // Elevation graph should NOT contain an avatar <image> element in all-own view.
     const graphImage = page.locator('#graph svg image');
-    await expect(graphImage).toHaveCount(1, { timeout: 5000 });
+    await expect(graphImage).toHaveCount(0, { timeout: 5000 });
   });
 
   test('shows avatars for both users on shared track via hash', async ({ page }) => {
@@ -147,5 +150,57 @@ test.describe('Avatar display on map and graph', () => {
 
     // Two markers total.
     await expect(page.locator(selectors.mapMarker)).toHaveCount(2);
+  });
+
+  test('all-own view shows no avatars even with avatar (upload + hash reload)', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    mock.seedAvatar(TINY_PNG, 'image/png');
+    await page.reload();
+
+    // Upload a track.
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    // No avatar in legend for all-own view.
+    await expect(page.locator('#legend-icon img')).toHaveCount(0, { timeout: 5000 });
+
+    // Reload via hash URL for the same own track.
+    const storageId = mock.getStoredTracks()[0]?.id;
+    if (storageId) {
+      await page.evaluate((hash) => { window.location.hash = hash; }, storageId);
+      await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+      // Still no avatar in all-own view after hash reload.
+      await expect(page.locator('#legend-icon img')).toHaveCount(0);
+    }
+  });
+
+  test('mixed view shows avatars on both tracks', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    // Seed own track and alice's track.
+    await mock.seedTracks([track1Data], 'testuser');
+    await mock.seedTracks([track2Data], 'alice');
+    mock.seedAvatar(TINY_PNG, 'image/png');
+    mock.seedAvatarFor('alice', TINY_PNG, 'image/png');
+
+    await page.reload();
+
+    const id1 = mock.getTrackId(track1Data);
+    const id2 = mock.getTrackId(track2Data);
+    await page.evaluate((hash) => { window.location.hash = hash; }, `${id1}/${id2}`);
+
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    // Both legend entries should show avatars.
+    const legendImgs = page.locator('#legend-icon img');
+    await expect(legendImgs).toHaveCount(2, { timeout: 5000 });
+
+    // Own row avatar src should match testuser's avatar URL.
+    const firstLegendImg = legendImgs.nth(0);
+    await expect(firstLegendImg).toHaveAttribute('src', /\/avatar\/testuser/);
+
+    // Alice's row avatar src should match alice's avatar URL.
+    const secondLegendImg = legendImgs.nth(1);
+    await expect(secondLegendImg).toHaveAttribute('src', /\/avatar\/alice/);
   });
 });

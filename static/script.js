@@ -201,7 +201,7 @@ function addFileListener(name) {
           dataToStorageId.push(null);
         }
         dataToIsShared.push(false);
-        dataToSharedBy.push(isLoggedIn() ? getUsername() : null);
+        dataToSharedBy.push(null);
         dataToLabel.push(null);
         dataUpdated();
         if (isLoggedIn()) {
@@ -231,14 +231,19 @@ function updateMarkers() {
   const currentTime = parseInt(slider.value);
   console.log(`current Time = ${currentTime}`);
 
+  const showAvatars = dataToSharedBy.some(Boolean);
+  const viewerUsername = isLoggedIn() ? getUsername() : null;
+  if (showAvatars && viewerUsername) loadAvatarIfNeeded(viewerUsername);
+
   lmap.clearMarkers();
   for (let i in tracks) {
     let track = tracks[i];
     const position = getPositionAtTime(track, currentTime);
     if (position) {
-      const username = dataToSharedBy[i] || null;
-      if (username) loadAvatarIfNeeded(username);
-      lmap.setMarker(position, i, username);
+      const ownerUsername = dataToSharedBy[i] || null;
+      const avatarUsername = showAvatars ? (ownerUsername || viewerUsername) : null;
+      if (avatarUsername) loadAvatarIfNeeded(avatarUsername);
+      lmap.setMarker(position, i, avatarUsername);
     }
   }
 
@@ -290,7 +295,7 @@ async function populateSavedTracks() {
       } else {
         displayText = "Unknown date";
       }
-      trackEntries.push({ entry, displayText, isShared: false, sharedBy: getUsername(), label: entry.label || null });
+      trackEntries.push({ entry, displayText, isShared: false, sharedBy: null, label: entry.label || null });
     }
 
     for (const entry of shared) {
@@ -632,9 +637,10 @@ async function loadTracksFromHash(hash) {
       dataToStorageId.push(entry.id);
 
       // Determine if this is someone else's track.
-      const isOthers = isLoggedIn() && entry.owner && entry.owner !== getUsername();
-      dataToIsShared.push(!!isOthers);
-      dataToSharedBy.push(entry.owner || null);
+      const currentUser = isLoggedIn() ? getUsername() : null;
+      const isOthers = !!(entry.owner && entry.owner !== currentUser);
+      dataToIsShared.push(isOthers);
+      dataToSharedBy.push(isOthers ? entry.owner : null);
       dataToLabel.push(null);
 
       // If logged in, save this track to our shared tracks list.
