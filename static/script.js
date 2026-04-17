@@ -22,6 +22,11 @@ let dataToLabel = [];
 // Cache of avatar load state: username -> HTMLImageElement (loaded) or null (failed/pending).
 let avatarCache = {};
 
+// Returns true iff at least one displayed track is owned by someone other than the current user.
+function shouldShowAvatars() {
+  return dataToIsShared.some(Boolean);
+}
+
 // Kick off an avatar load for a username if not already attempted.
 // The image will be available in avatarCache on subsequent redraws.
 function loadAvatarIfNeeded(username) {
@@ -226,7 +231,8 @@ function displayTracks() {
   }
   const displayNames = data.map((_, i) => getTrackDisplayName(i));
   const dateStrings = data.map((_, i) => getStartDate(data[i]));
-  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, dataToSharedBy);
+  const effectiveSharedBy = shouldShowAvatars() ? dataToSharedBy : dataToSharedBy.map(() => null);
+  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, effectiveSharedBy);
   initializeSlider();
   updateMarkers();
 }
@@ -236,7 +242,8 @@ function refreshLegend() {
   if (!tracks.length) return;
   const displayNames = data.map((_, i) => getTrackDisplayName(i));
   const dateStrings = data.map((_, i) => getStartDate(data[i]));
-  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, dataToSharedBy);
+  const effectiveSharedBy = shouldShowAvatars() ? dataToSharedBy : dataToSharedBy.map(() => null);
+  lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, effectiveSharedBy);
 }
 
 // Listen for new files to be added.
@@ -295,7 +302,7 @@ function updateMarkers() {
     let track = tracks[i];
     const position = getPositionAtTime(track, currentTime);
     if (position) {
-      const username = dataToSharedBy[i] || null;
+      const username = shouldShowAvatars() ? (dataToSharedBy[i] || null) : null;
       if (username) loadAvatarIfNeeded(username);
       lmap.setMarker(position, i, username);
     }
