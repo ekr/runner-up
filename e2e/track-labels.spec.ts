@@ -51,7 +51,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     // Legend should now show the new name
-    await expect(legendText).toHaveText('Morning Run (testuser)');
+    await expect(legendText).toHaveText('Morning Run');
     // Tooltip should still show the date
     await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
   });
@@ -77,7 +77,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Evening Run (testuser)');
+    await expect(legendText).toHaveText('Evening Run');
     // Pencil should be visible again
     await expect(pencil).toBeVisible();
   });
@@ -97,7 +97,7 @@ test.describe('Track Labels', () => {
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toHaveText('Old Name (testuser)');
+    await expect(legendText).toHaveText('Old Name');
 
     // Click to edit, clear the name, press Enter
     await legendText.click();
@@ -172,5 +172,36 @@ test.describe('Track Labels', () => {
     // Details should now include the date since track has a custom label
     const details = trackItem.locator('.track-item-details');
     await expect(details).toContainText('Jan 15, 2024');
+  });
+
+  test('does not append (username) to legend when all tracks are own', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    await page.reload();
+
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(__dirname, 'fixtures', 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    const legendText = page.locator('#legend-container #legend-text');
+    await expect(legendText).toContainText('Mon Jan 15 2024');
+    await expect(legendText).not.toContainText('(testuser)');
+  });
+
+  test('appends (username) to all legend entries when a shared track is present', async ({ page }) => {
+    const mock = await setupApiMock(page);
+    // testuser owns track1, alice owns track2.
+    await mock.seedTracks([track1Data], 'testuser');
+    await mock.seedTracks([track2Data], 'alice');
+    await page.reload();
+
+    const id1 = mock.getTrackId(track1Data);
+    const id2 = mock.getTrackId(track2Data);
+    await page.evaluate((hash) => { window.location.hash = hash; }, `${id1}/${id2}`);
+
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    const legendTexts = page.locator('#legend-container #legend-text');
+    await expect(legendTexts.nth(0)).toContainText('(testuser)');
+    await expect(legendTexts.nth(1)).toContainText('(alice)');
   });
 });

@@ -71,13 +71,14 @@ let lmap = undefined;
 
 // Get the display name for a track by index.
 // Uses custom label if set, otherwise falls back to date.
-// Appends (sharedBy) for shared tracks.
+// Appends (sharedBy) to all tracks when at least one displayed track is owned by another user (matches avatar policy).
 function getTrackDisplayName(index) {
   const track = data[index];
   const label = dataToLabel[index];
   const base = label || getStartDate(track);
   const sharedBy = dataToSharedBy[index];
-  return sharedBy ? `${base} (${sharedBy})` : base;
+  const showSuffix = sharedBy && shouldShowAvatars();
+  return showSuffix ? `${base} (${sharedBy})` : base;
 }
 
 // The data has been updated, so we need to basically
