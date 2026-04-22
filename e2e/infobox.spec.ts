@@ -111,20 +111,34 @@ test.describe('Leader Infobox', () => {
     await expect(infobox).not.toContainText('Behind');
   });
 
-  test('infobox hidden when tracks do not share a coherent course (all_match=false)', async ({ page }) => {
-    // main-route-with-loop and main-route-no-loop are different routes; the
-    // alignment detects multi-segment and displayMode defaults to 'full', so
-    // all_match ends up false. Comparing raw GPS distances across different
-    // courses would produce a nonsensical "leader", so the infobox should hide.
+  test('infobox hidden when tracks do not share a coherent course', async ({ page }) => {
+    // main-route-with-loop and main-route-no-loop share a start but diverge,
+    // producing a multi-segment alignment. In the default "full" display mode
+    // this leaves tracks on incomparable raw-distance scales, so the infobox
+    // would otherwise pick a misleading leader — it should hide instead.
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
 
-    const allMatch = await page.evaluate(() => window.all_match);
-    expect(allMatch).toBe(false);
-
     await expect(page.locator('#infobox-container')).toBeHidden();
+  });
+
+  test('infobox reappears when switching from full to overlapping mode', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+
+    // Starts hidden in full mode.
+    await expect(page.locator('#infobox-container')).toBeHidden();
+
+    // Switching to overlapping mode harmonizes distances, so the infobox
+    // should render again.
+    await page.selectOption(selectors.displayModeSelect, 'overlapping');
+    await expect(page.locator('#infobox-container')).toBeVisible();
+    await expect(page.locator('#infobox-container')).toContainText('Leader');
   });
 });
