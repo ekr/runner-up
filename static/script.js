@@ -87,6 +87,8 @@ function dataUpdated() {
   if (!data.length) {
     lmap.clear();
     removeGraphs();
+    const infoboxContainer = document.getElementById("infobox-container");
+    if (infoboxContainer) infoboxContainer.style.display = "none";
     return;
   }
 
@@ -310,6 +312,16 @@ function updateMarkers() {
   }
 
   drawGraphs(currentTime, all_match);
+
+  const infoboxContainer = document.getElementById("infobox-container");
+  if (infoboxContainer) {
+    const names = data.map((_, i) => getTrackDisplayName(i));
+    renderInfobox(
+      infoboxContainer,
+      computeLeaderInfo(tracks, currentTime, names),
+      Units()
+    );
+  }
 }
 
 // Get the set of storage IDs currently being displayed.
