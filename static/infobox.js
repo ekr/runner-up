@@ -110,12 +110,16 @@ function renderInfobox(container, info, units) {
   const box = document.createElement('div');
   box.className = 'infobox';
 
-  function addRow(label, value) {
+  function addRow(label, value, trackIndex) {
     const row = document.createElement('div');
     row.className = 'infobox-row';
     const labelEl = document.createElement('span');
     labelEl.className = 'infobox-label';
     labelEl.textContent = label;
+    if (trackIndex != null && typeof getColor === 'function') {
+      labelEl.style.color = getColor(trackIndex);
+      labelEl.style.fontWeight = '600';
+    }
     const valueEl = document.createElement('span');
     valueEl.className = 'infobox-value';
     valueEl.textContent = value;
@@ -141,19 +145,19 @@ function renderInfobox(container, info, units) {
     addRow('Distance', formatDist(info.distance));
   } else if (info.type === 'fallback') {
     for (const t of info.tracks) {
-      addRow(t.name, formatDist(t.distance));
+      addRow(t.name, formatDist(t.distance), t.index);
     }
   } else if (info.type === 'race') {
     addHeader('Leader');
-    addRow(info.leader.name, formatDist(info.leader.distance));
+    addRow(info.leader.name, formatDist(info.leader.distance), info.leader.index);
 
     for (const f of info.followers) {
       addHeader('Behind');
       const timeStr = f.timeBehind != null
         ? `+${formatTime(f.timeBehind)}`
         : 'not yet reached';
-      const distStr = `+${units.distanceValue(f.distanceBehind).toFixed(2)} ${units.distanceUnits()}`;
-      addRow(f.name, `${timeStr} · ${distStr}`);
+      const distStr = `-${units.distanceValue(f.distanceBehind).toFixed(2)} ${units.distanceUnits()}`;
+      addRow(f.name, `${timeStr} · ${distStr}`, f.index);
     }
   }
 
