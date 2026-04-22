@@ -315,12 +315,21 @@ function updateMarkers() {
 
   const infoboxContainer = document.getElementById("infobox-container");
   if (infoboxContainer) {
-    const names = data.map((_, i) => getTrackDisplayName(i));
-    renderInfobox(
-      infoboxContainer,
-      computeLeaderInfo(tracks, currentTime, names),
-      Units()
-    );
+    // With 2+ tracks that don't share a coherent course (multi-segment or
+    // mismatched routes, viewed in full-tracks mode), displayDistance falls
+    // back to raw GPS distance. Comparing raw distances across different
+    // courses is meaningless — whoever's raw path is longer wins, not who's
+    // ahead — so hide the infobox instead of showing a wrong leader.
+    if (tracks.length >= 2 && !all_match) {
+      infoboxContainer.style.display = "none";
+    } else {
+      const names = data.map((_, i) => getTrackDisplayName(i));
+      renderInfobox(
+        infoboxContainer,
+        computeLeaderInfo(tracks, currentTime, names),
+        Units()
+      );
+    }
   }
 }
 
