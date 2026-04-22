@@ -640,35 +640,6 @@ body.settings-page {
   margin: 0;
 }
 
-/* Pin the slider to the viewport bottom at all widths. On typical
-   laptop viewports (e.g. 1280x720) the natural layout puts the slider
-   below the fold, so keeping it visible everywhere is simpler and more
-   consistent than chasing breakpoint-specific fixes. */
-#slider-container {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
-    background: white;
-    border-top: 1px solid #ccc;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
-    z-index: 1001;
-}
-
-/* Reserve space so the fixed slider never covers content at end of scroll. */
-body {
-    padding-bottom: 72px;
-}
-
-/* #graph hard-codes height: 200px at the top of the file for desktop;
-   the D3 plots overflow below. Let the container grow so the footer
-   lands after all plots instead of between the box and its overflow. */
-#graph {
-    height: auto;
-}
-
 @media (max-width: 767px) {
   #map { height: 50vh; }
   #map-container { position: static; }
@@ -710,4 +681,29 @@ body {
   #footer > * { margin-left: 0 !important; }
   .logo-container { flex-wrap: wrap; }
   #auth-bar { flex-wrap: wrap; }
+
+  /* Pin the slider to the viewport bottom on mobile so it's reachable
+     without scrolling past the reflowed legend/infobox. */
+  #slider-container {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: white;
+    border-top: 1px solid #ccc;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
+    z-index: 1001;
+  }
+
+  /* Reserve space so the fixed slider never covers the footer at
+     end-of-scroll. */
+  body { padding-bottom: 72px; }
+
+  /* Desktop pins #graph to 200px; D3 plots overflow below. With the
+     footer now in flow (from #63), let the container grow so the
+     footer lands after all plots rather than between the box and the
+     overflow. */
+  #graph { height: auto; }
 }
