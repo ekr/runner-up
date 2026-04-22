@@ -640,9 +640,48 @@ body.settings-page {
   margin: 0;
 }
 
+/* Pin the slider to the viewport bottom at all widths. On typical
+   laptop viewports (e.g. 1280x720) the natural layout puts the slider
+   below the fold, so keeping it visible everywhere is simpler and more
+   consistent than chasing breakpoint-specific fixes. */
+#slider-container {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: white;
+    border-top: 1px solid #ccc;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
+    z-index: 1001;
+}
+
+/* Reserve space so the fixed slider never covers content at end of scroll. */
+body {
+    padding-bottom: 72px;
+}
+
+/* #graph hard-codes height: 200px at the top of the file for desktop;
+   the D3 plots overflow below. Let the container grow so the footer
+   lands after all plots instead of between the box and its overflow. */
+#graph {
+    height: auto;
+}
+
 @media (max-width: 767px) {
   #map { height: 50vh; }
   #map-container { position: static; }
+  /* #63 made the individual containers static but left #overlay-right
+     position: absolute. With #map-container now static, overlay-right's
+     absolute positioning falls back to the initial containing block and
+     floats at the top-right of the viewport, covering the logo/login
+     form. Dropping it to static puts it back into document flow below
+     the map like the rest of the mobile reflow intended. */
+  #overlay-right {
+    position: static;
+    max-width: none;
+  }
   #legend-container,
   #infobox-container {
     position: static;
@@ -671,25 +710,4 @@ body.settings-page {
   #footer > * { margin-left: 0 !important; }
   .logo-container { flex-wrap: wrap; }
   #auth-bar { flex-wrap: wrap; }
-
-  #slider-container {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
-    background: white;
-    border-top: 1px solid #ccc;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
-    z-index: 1001;
-  }
-
-  /* Desktop pins #graph to 200px; its D3 plots overflow below. With the
-     slider now fixed, let the container grow so the footer lands after
-     all plots instead of between the graph's box and its overflow. */
-  #graph { height: auto; }
-
-  /* Reserve space so the fixed slider never covers the footer. */
-  body { padding-bottom: 72px; }
 }

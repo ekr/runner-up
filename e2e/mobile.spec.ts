@@ -36,6 +36,18 @@ test.describe('Mobile layout', () => {
     // Legend container is visible
     await expect(page.locator(selectors.legendContainer)).toBeVisible();
 
+    // #overlay-right must be in document flow (not floating over the login
+    // form / page chrome at the top of the viewport).
+    const overlayPosition = await page.locator('#overlay-right').evaluate(
+      (el) => getComputedStyle(el).position
+    );
+    expect(overlayPosition).toBe('static');
+    const [mapBottom, overlayTop] = await page.evaluate(() => [
+      document.getElementById('map')!.getBoundingClientRect().bottom,
+      document.getElementById('overlay-right')!.getBoundingClientRect().top,
+    ]);
+    expect(overlayTop).toBeGreaterThanOrEqual(mapBottom - 1);
+
     // Map has non-zero height
     const mapHeight = await page.locator(selectors.mapContainer).evaluate((el) => el.clientHeight);
     expect(mapHeight).toBeGreaterThan(0);
