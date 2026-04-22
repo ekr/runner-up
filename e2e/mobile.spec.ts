@@ -46,4 +46,34 @@ test.describe('Mobile layout', () => {
     // No JS errors
     expect(errors).toHaveLength(0);
   });
+
+  test('slider is pinned to the viewport bottom and stays there while scrolling', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    const sliderPosition = await page.locator('#slider-container').evaluate(
+      (el) => getComputedStyle(el).position
+    );
+    expect(sliderPosition).toBe('fixed');
+
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    const sliderBottom = await page.locator('#slider-container').evaluate(
+      (el) => el.getBoundingClientRect().bottom
+    );
+    expect(Math.abs(sliderBottom - viewportHeight)).toBeLessThan(2);
+
+    // Scroll to end: the slider should still be at the viewport bottom,
+    // and the footer should be fully above it (not hidden behind).
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(100);
+
+    const [sliderBottomEnd, footerBottom, sliderTop] = await page.evaluate(() => {
+      const s = document.getElementById('slider-container')!.getBoundingClientRect();
+      const f = document.getElementById('footer')!.getBoundingClientRect();
+      return [s.bottom, f.bottom, s.top];
+    });
+    expect(Math.abs(sliderBottomEnd - viewportHeight)).toBeLessThan(2);
+    expect(footerBottom).toBeLessThanOrEqual(sliderTop + 1);
+  });
 });

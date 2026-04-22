@@ -671,4 +671,25 @@ body.settings-page {
   #footer > * { margin-left: 0 !important; }
   .logo-container { flex-wrap: wrap; }
   #auth-bar { flex-wrap: wrap; }
+
+  #slider-container {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: white;
+    border-top: 1px solid #ccc;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.08);
+    z-index: 1001;
+  }
+
+  /* Desktop pins #graph to 200px; its D3 plots overflow below. With the
+     slider now fixed, let the container grow so the footer lands after
+     all plots instead of between the graph's box and its overflow. */
+  #graph { height: auto; }
+
+  /* Reserve space so the fixed slider never covers the footer. */
+  body { padding-bottom: 72px; }
 }
