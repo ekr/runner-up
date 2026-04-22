@@ -195,8 +195,6 @@ function LeafletMap() {
       legendContainer.appendChild(clone);
     }
 
-    legendContainer.style.top = "10px";
-    legendContainer.style.right = "10px";
     legendContainer.style.backgroundColor = "white";
     legendContainer.style.padding = "10px";
     legendContainer.style.border = "1px solid #ccc";

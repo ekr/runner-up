@@ -61,7 +61,10 @@
   <div>
     <div id="map-container">
       <div id="map"></div>
-      <div id="legend-container"></div>
+      <div id="overlay-right">
+        <div id="legend-container"></div>
+        <div id="infobox-container" style="display: none;"></div>
+      </div>
     </div>
     <div id="slider-container">
         <input type="range" id="time-slider" min="0" max="100" value="0">
@@ -110,6 +113,7 @@
     <script src="map.js"></script>
     <script src="graphs.js"></script>
     <script src="storage.js"></script>
+    <script src="infobox.js"></script>
     <script src="script.js"></script>
 
 </body>
