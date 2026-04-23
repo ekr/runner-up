@@ -241,6 +241,49 @@ body {
     cursor: pointer;
 }
 
+#add-track {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#url-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#track-url {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 14px;
+    width: 260px;
+}
+
+#track-url-btn {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+#track-url-btn:hover:not(:disabled) {
+    background: #eee;
+}
+
+#track-url-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+#track-url-error {
+    font-size: 13px;
+}
+
 #footer {
     position: absolute;
     margin-bottom: 10px;

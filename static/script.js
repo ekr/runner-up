@@ -309,6 +309,26 @@ function refreshLegend() {
   lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, effectiveSharedBy);
 }
 
+// Add a track from raw GPX text. Parses, pushes into `data`, and persists
+// to server storage when logged in. Throws if the GPX is unparseable.
+async function addTrackFromGPXText(gpxText) {
+  const track = parseGPX(gpxText);
+  data.push(track);
+  if (isLoggedIn()) {
+    const storageId = await saveGPXToStorage(gpxText);
+    dataToStorageId.push(storageId);
+  } else {
+    dataToStorageId.push(null);
+  }
+  dataToIsShared.push(false);
+  dataToSharedBy.push(isLoggedIn() ? getUsername() : null);
+  dataToLabel.push(null);
+  dataUpdated();
+  if (isLoggedIn()) {
+    populateSavedTracks();
+  }
+}
+
 // Listen for new files to be added.
 function addFileListener(name) {
   const fileInput = document.getElementById(name);
@@ -320,24 +340,58 @@ function addFileListener(name) {
       const reader = new FileReader();
       console.log(file);
       reader.onload = async (e) => {
-        const gpxText = e.target.result;
-        const track = parseGPX(gpxText);
-        data.push(track);
-        if (isLoggedIn()) {
-          const storageId = await saveGPXToStorage(gpxText);
-          dataToStorageId.push(storageId);
-        } else {
-          dataToStorageId.push(null);
-        }
-        dataToIsShared.push(false);
-        dataToSharedBy.push(isLoggedIn() ? getUsername() : null);
-        dataToLabel.push(null);
-        dataUpdated();
-        if (isLoggedIn()) {
-          populateSavedTracks();
-        }
+        await addTrackFromGPXText(e.target.result);
       };
       reader.readAsText(file);
+    }
+  });
+}
+
+// Listen for GPX URLs to be submitted.
+function addUrlListener() {
+  const input = document.getElementById("track-url");
+  const button = document.getElementById("track-url-btn");
+  const errorEl = document.getElementById("track-url-error");
+  if (!input || !button) return;
+
+  const submit = async () => {
+    const url = input.value.trim();
+    errorEl.textContent = "";
+    if (!url) return;
+    try {
+      new URL(url);
+    } catch {
+      errorEl.textContent = "Invalid URL.";
+      return;
+    }
+    button.disabled = true;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const gpxText = await response.text();
+      await addTrackFromGPXText(gpxText);
+      input.value = "";
+    } catch (err) {
+      console.error("Failed to load GPX from URL:", err);
+      const msg = err && err.message ? err.message : String(err);
+      // fetch() throws a bare TypeError for CORS/network errors; clarify.
+      if (err instanceof TypeError) {
+        errorEl.textContent = "Could not fetch URL (network or CORS error).";
+      } else {
+        errorEl.textContent = `Failed to load: ${msg}`;
+      }
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  button.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
     }
   });
 }
@@ -717,6 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   addFileListener("track");
+  addUrlListener();
   addSavedTrackListener();
   if (isLoggedIn()) {
     Settings.load();

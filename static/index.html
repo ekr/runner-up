@@ -44,6 +44,11 @@
   <div id="control-bar">
     <div id="add-track">
       <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
+      <div id="url-add">
+        <input type="url" id="track-url" placeholder="…or paste a GPX URL" autocomplete="off">
+        <button type="button" id="track-url-btn">Add</button>
+        <span id="track-url-error" class="auth-error"></span>
+      </div>
       <select id="saved-tracks">
         <option value="" disabled selected>Select a saved track...</option>
       </select>
