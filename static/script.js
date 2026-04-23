@@ -162,7 +162,7 @@ function dataUpdated() {
   } else if (alignment.hasMultipleSegments) {
     console.log("More than one segment");
     if (display_mode) {
-      display_mode.style.display = "flex";
+      display_mode.style.display = "block";
       const summary = document.querySelector("#alignment-summary");
       if (summary) {
         summary.textContent = getAlignmentSummary(alignment);
@@ -172,7 +172,7 @@ function dataUpdated() {
     // N > 2 tracks with a single common overlap — show mode toggle.
     console.log("Common overlap found for N tracks");
     if (display_mode) {
-      display_mode.style.display = "flex";
+      display_mode.style.display = "block";
       const summary = document.querySelector("#alignment-summary");
       if (summary) {
         summary.textContent = getAlignmentSummary(alignment);
@@ -185,7 +185,7 @@ function dataUpdated() {
 
   // Show/hide the file picker depending on track count.
   document.querySelector("#add-track").style.display =
-    data.length >= MAX_TRACKS ? "none" : "flex";
+    data.length >= MAX_TRACKS ? "none" : "block";
 
   try {
     displayTracks();
@@ -671,7 +671,7 @@ function updateAuthUI() {
   }
 
   // Always explicitly set add-track visibility based on track count.
-  addTrack.style.display = data.length < MAX_TRACKS ? "flex" : "none";
+  addTrack.style.display = data.length < MAX_TRACKS ? "block" : "none";
 }
 
 // Set up auth event listeners.
