@@ -61,6 +61,14 @@ var alignment = null;
 // Using var so it's accessible via window.all_match for testing.
 var all_match = null;
 
+// Tracks used for the leader infobox. Usually the same as `tracks`, but in
+// full-tracks mode with a multi-segment alignment we synthesize a harmonized
+// copy (same raw time axis, per-segment scaled distances) so the infobox can
+// still pick a meaningful leader while the map keeps showing the raw tracks.
+// Null when no coherent comparison is possible.
+// Using var so it's accessible via window.infoboxTracks for testing.
+var infoboxTracks = null;
+
 // Display mode: 'full' shows entire tracks, 'overlapping' shows only overlapping regions.
 // Persisted in localStorage so the choice survives a page reload.
 // Using var so it's accessible via window.displayMode for testing.
@@ -189,6 +197,56 @@ function dataUpdated() {
   updateUrlHash();
 }
 
+// For each raw-track point, compute "shared-course progress": harmonized
+// distance across overlapping regions only, excluding any detour distance
+// between regions. Unlike harmonizeFullTrack, which folds raw off-course
+// distance into the cumulative, this answers "how far along the shared
+// route is this runner right now" — which is what the leader infobox needs.
+function sharedCourseProgressTracks(data, alignment) {
+  const regions = alignment.overlappingRegions;
+  return data.map((track, trackIndex) => {
+    const result = new Array(track.length);
+    let cumulative = 0;
+    let regionIdx = 0;
+    for (let i = 0; i < track.length; i++) {
+      while (regionIdx < regions.length) {
+        const range = trackIndex === 0
+          ? regions[regionIdx].track1Range
+          : regions[regionIdx].track2Range;
+        if (i <= range[1]) break;
+        cumulative += regions[regionIdx].harmonizedDistance;
+        regionIdx++;
+      }
+      let progress = cumulative;
+      if (regionIdx < regions.length) {
+        const region = regions[regionIdx];
+        const range = trackIndex === 0 ? region.track1Range : region.track2Range;
+        const rawDist = trackIndex === 0 ? region.track1Distance : region.track2Distance;
+        if (i >= range[0]) {
+          const scale = rawDist > 0 ? region.harmonizedDistance / rawDist : 1;
+          progress += (track[i].distance - track[range[0]].distance) * scale;
+        }
+      }
+      result[i] = { ...track[i], displayDistance: progress };
+    }
+    return result;
+  });
+}
+
+// Produce the track list that computeLeaderInfo should consume. In most
+// modes this is just `tracks` as-is. The interesting case is full-tracks
+// mode with a multi-segment 2-track alignment: `tracks` has raw GPS
+// distances (different between the two courses), so picking a leader by
+// max displayDistance is meaningless. We build shared-course-progress
+// tracks here so the infobox can still compare them.
+function computeInfoboxTracks() {
+  if (all_match) return tracks;
+  if (data.length === 2 && alignment && alignment.overlappingRegions?.length > 0) {
+    return sharedCourseProgressTracks(data, alignment);
+  }
+  return null;
+}
+
 function displayTracks() {
   tracks = structuredClone(data);
 
@@ -219,6 +277,8 @@ function displayTracks() {
       point.displayDistance = point.normalizedDistance ?? point.distance;
     });
   });
+
+  infoboxTracks = computeInfoboxTracks();
 
   // Clean up
   lmap.clear();
@@ -315,12 +375,19 @@ function updateMarkers() {
 
   const infoboxContainer = document.getElementById("infobox-container");
   if (infoboxContainer) {
-    const names = data.map((_, i) => getTrackDisplayName(i));
-    renderInfobox(
-      infoboxContainer,
-      computeLeaderInfo(tracks, currentTime, names),
-      Units()
-    );
+    // `infoboxTracks` is null when no coherent comparison is possible
+    // (e.g., no alignment at all). In that case hide instead of picking a
+    // nonsense leader from raw distances.
+    if (!infoboxTracks) {
+      infoboxContainer.style.display = "none";
+    } else {
+      const names = data.map((_, i) => getTrackDisplayName(i));
+      renderInfobox(
+        infoboxContainer,
+        computeLeaderInfo(infoboxTracks, currentTime, names),
+        Units()
+      );
+    }
   }
 }
 
