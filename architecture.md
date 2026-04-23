@@ -30,9 +30,13 @@ All modules are plain browser-global JS scripts loaded in order in `index.html`.
 
 ## Map Overlay Layout
 
-The map container uses `position: relative`. Overlaid UI sits in `#overlay-right` — a flex column absolutely positioned at `top: 10px; right: 10px; z-index: 1000`. It contains:
+The map container uses `position: relative`. Overlaid UI sits in `#overlay-right` — a column absolutely positioned at `top: 10px; right: 10px; z-index: 1000`. It contains:
+- `#add-track` — collapsible `<details>` card for uploading/adding tracks
+- `#display-mode` — toggle between full and overlapping regions (visible when aligned)
 - `#legend-container` — per-track color swatches, rename, delete, download
 - `#infobox-container` — live leader/follower stats (hidden when no tracks loaded)
+
+All overlay elements are styled as cards with white backgrounds and subtle shadows. On mobile, they reflow below the map.
 
 ## Track Distance Fields
 

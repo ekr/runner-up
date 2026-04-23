@@ -41,34 +41,46 @@
     </div>
   </div>
   <div id="logged-out-banner" style="display: none;">Not logged in. Tracks will not be stored or shareable.</div>
-  <div id="control-bar">
-    <div id="add-track">
-      <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
-      <div id="url-add">
-        <input type="url" id="track-url" placeholder="…or paste a GPX URL" autocomplete="off">
-        <button type="button" id="track-url-btn">Add</button>
-        <span id="track-url-error" class="auth-error"></span>
-      </div>
-      <select id="saved-tracks">
-        <option value="" disabled selected>Select a saved track...</option>
-      </select>
-    </div>
-    <div id="display-mode" style="display: none;">
-      <span id="alignment-summary"></span>
-      <label for="display-mode-select">Show: </label>
-      <select id="display-mode-select">
-        <option value="full">Full tracks</option>
-        <option value="overlapping">Overlapping regions only</option>
-      </select>
-    </div>
-  </div>
-  
+
   <div>
     <div id="map-container">
       <div id="map"></div>
       <div id="overlay-right">
-        <div id="legend-container"></div>
-        <div id="infobox-container" style="display: none;"></div>
+        <details id="add-track" class="overlay-card" open>
+          <summary>Add Track</summary>
+          <div class="add-track-content">
+            <div class="method-group">
+              <label id="file-label" for="track">Upload GPX file</label>
+              <input type="file" id="track">
+            </div>
+            <div class="method-group">
+              <div id="url-add">
+                <input type="url" id="track-url" placeholder="GPX URL" autocomplete="off">
+                <button type="button" id="track-url-btn">Add</button>
+              </div>
+              <span id="track-url-error" class="auth-error"></span>
+            </div>
+            <div class="method-group">
+              <select id="saved-tracks">
+                <option value="" disabled selected>Select a saved track...</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <div id="display-mode" class="overlay-card" style="display: none;">
+          <div id="alignment-summary"></div>
+          <div class="display-mode-controls">
+            <label for="display-mode-select">Show: </label>
+            <select id="display-mode-select">
+              <option value="full">Full tracks</option>
+              <option value="overlapping">Overlapping regions only</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="legend-container" class="overlay-card"></div>
+        <div id="infobox-container" class="overlay-card" style="display: none;"></div>
       </div>
     </div>
     <div id="slider-container">
