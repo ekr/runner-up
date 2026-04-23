@@ -111,34 +111,56 @@ test.describe('Leader Infobox', () => {
     await expect(infobox).not.toContainText('Behind');
   });
 
-  test('infobox hidden when tracks do not share a coherent course', async ({ page }) => {
-    // main-route-with-loop and main-route-no-loop share a start but diverge,
-    // producing a multi-segment alignment. In the default "full" display mode
-    // this leaves tracks on incomparable raw-distance scales, so the infobox
-    // would otherwise pick a misleading leader — it should hide instead.
+  test('infobox shows leader in full-tracks mode with multi-segment alignment', async ({ page }) => {
+    // main-route-with-loop and main-route-no-loop share portions of course but
+    // the loop track has a detour, giving a multi-segment alignment. In full
+    // mode the global `tracks` has raw GPS distances (different between the
+    // two courses), so picking a leader from max displayDistance would be
+    // nonsense. The infobox should use shared-course progress instead.
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
 
-    await expect(page.locator('#infobox-container')).toBeHidden();
+    const infobox = page.locator('#infobox-container');
+    await expect(infobox).toBeVisible();
+    await expect(infobox).toContainText('Leader');
+    await expect(infobox).toContainText('Behind');
+
+    // Sanity-check shared-course progress: both tracks' displayDistance on
+    // the infobox tracks must be within the sum of the regions' harmonized
+    // distances (i.e., bounded by total shared-course length), unlike the
+    // raw-distance case where a track's detour can push it past that.
+    const bounds = await page.evaluate(() => {
+      const totalShared = window.alignment.overlappingRegions
+        .reduce((s, r) => s + r.harmonizedDistance, 0);
+      const maxProgress = Math.max(
+        window.infoboxTracks[0][window.infoboxTracks[0].length - 1].displayDistance,
+        window.infoboxTracks[1][window.infoboxTracks[1].length - 1].displayDistance
+      );
+      return { totalShared, maxProgress };
+    });
+    expect(bounds.maxProgress).toBeLessThanOrEqual(bounds.totalShared + 1);
   });
 
-  test('infobox reappears when switching from full to overlapping mode', async ({ page }) => {
+  test('infobox remains visible when toggling display mode', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-no-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
 
-    // Starts hidden in full mode.
-    await expect(page.locator('#infobox-container')).toBeHidden();
+    const infobox = page.locator('#infobox-container');
+    await expect(infobox).toBeVisible();
+    await expect(infobox).toContainText('Leader');
 
-    // Switching to overlapping mode harmonizes distances, so the infobox
-    // should render again.
     await page.selectOption(selectors.displayModeSelect, 'overlapping');
-    await expect(page.locator('#infobox-container')).toBeVisible();
-    await expect(page.locator('#infobox-container')).toContainText('Leader');
+    await expect(infobox).toBeVisible();
+    await expect(infobox).toContainText('Leader');
+
+    await page.selectOption(selectors.displayModeSelect, 'full');
+    await expect(infobox).toBeVisible();
+    await expect(infobox).toContainText('Leader');
   });
 });
