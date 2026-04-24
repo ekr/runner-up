@@ -18,6 +18,10 @@ test.describe('Leader Infobox', () => {
     await expect(page.locator('#infobox-container')).toBeHidden();
   });
 
+  test('legend hidden with no tracks', async ({ page }) => {
+    await expect(page.locator('#legend-container')).toBeHidden();
+  });
+
   test('single track shows elapsed and distance, no follower rows', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
