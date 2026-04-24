@@ -276,6 +276,10 @@ body {
     overflow-y: auto;
 }
 
+#legend-container:empty {
+    display: none;
+}
+
 .infobox {
     font-size: 13px;
 }
