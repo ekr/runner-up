@@ -87,12 +87,12 @@
         <input type="range" id="time-slider" min="0" max="100" value="0">
     </div>
     <template id="legend-line">
-      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+      <div class="legend-row">
         <button class="delete-button times-button" aria-label="Delete item" title="Delete item">
           &times;
         </button>
-        <div id="legend-icon" style="background-color: red; width: 20px; height: 20px; margin-right: 5px;"></div>
-        <span id="legend-text"></span>
+        <div id="legend-icon" class="legend-icon" style="background-color: red;"></div>
+        <span id="legend-text" class="legend-text"></span>
         <button class="rename-button" aria-label="Rename track" title="Rename track" style="display: none;">&#x270E;</button>
         <button class="download-button" aria-label="Download GPX" title="Download GPX">&#x2913;</button>
       </div>

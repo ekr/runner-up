@@ -17,6 +17,32 @@ test.describe('Graphs', () => {
   test('should show compare-by menu', async ({ page }) => {
     await expect(page.locator(selectors.compareByMenu)).toBeVisible();
   });
+
+  test('footer renders below graph container after plots are drawn', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track2.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+
+    // Wait for the elevation graph SVG to appear inside #graph.
+    await expect(page.locator('#graph svg').first()).toBeVisible({ timeout: 5000 });
+
+    const result = await page.evaluate(() => {
+      const graph = document.getElementById('graph') as HTMLElement;
+      const footer = document.getElementById('footer') as HTMLElement;
+      const graphRect = graph.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      return {
+        graphBottom: graphRect.bottom,
+        footerTop: footerRect.top,
+        footerBelowGraph: footerRect.top >= graphRect.bottom,
+      };
+    });
+
+    expect(result.footerBelowGraph).toBe(true);
+  });
 });
 
 test.describe('displayTime in non-overlapping segments', () => {
