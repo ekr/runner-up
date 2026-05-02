@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { chromium } from 'playwright';
+import { chromium } from '@playwright/test';
 import { existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';

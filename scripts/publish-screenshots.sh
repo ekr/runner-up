@@ -15,10 +15,13 @@ WORKSPACE_DIR="$(pwd)"
 SCREENSHOTS_SRC="${WORKSPACE_DIR}/screenshots"
 COMMENT_BODY="${SCREENSHOTS_SRC}/.comment-body.md"
 
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+git config --global user.name "github-actions[bot]"
 
-cd "$TMPDIR"
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+cd "$WORK_DIR"
 
 # Clone or init the orphan branch
 if git ls-remote --exit-code --heads "$REPO_URL" "$BRANCH" >/dev/null 2>&1; then
@@ -31,13 +34,10 @@ else
   touch .gitkeep
   git add .gitkeep
   git commit -m "Initialize pr-screenshots branch"
-  cd "$TMPDIR"
+  cd "$WORK_DIR"
 fi
 
-cd "$TMPDIR/repo"
-
-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git config user.name "github-actions[bot]"
+cd "$WORK_DIR/repo"
 
 # Remove stale screenshots for this PR (keep other PRs untouched)
 rm -rf "pr/${PR_NUMBER}"
