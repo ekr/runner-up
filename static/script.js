@@ -757,8 +757,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Set up the deploy date.
   fetch("deploy-date.txt")
-    .then((response) => response.text())
-    .then((v) => (document.querySelector("#deploy-date").textContent = v));
+    .then((response) => (response.ok ? response.text() : null))
+    .then((v) => {
+      if (v == null) {
+        document.getElementById("deploy-label").style.display = "none";
+        return;
+      }
+      document.querySelector("#deploy-date").textContent = v.trim();
+    });
 
   // Set up auth UI.
   setupAuthListeners();

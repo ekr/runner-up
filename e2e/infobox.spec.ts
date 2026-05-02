@@ -148,6 +148,39 @@ test.describe('Leader Infobox', () => {
     expect(bounds.maxProgress).toBeLessThanOrEqual(bounds.totalShared + 1);
   });
 
+  test('infobox label and value have visible separation', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track2.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+
+    const infobox = page.locator('#infobox-container');
+    await expect(infobox).toBeVisible({ timeout: 3000 });
+
+    const result = await page.evaluate(() => {
+      const row = document.querySelector('.infobox-row') as HTMLElement;
+      if (!row) return { error: 'no .infobox-row found' };
+      const label = row.querySelector('.infobox-label') as HTMLElement;
+      const value = row.querySelector('.infobox-value') as HTMLElement;
+      if (!label || !value) return { error: 'missing label or value' };
+      const labelRect = label.getBoundingClientRect();
+      const valueRect = value.getBoundingClientRect();
+      const rowStyle = getComputedStyle(row);
+      return {
+        display: rowStyle.display,
+        labelRight: labelRect.right,
+        valueLeft: valueRect.left,
+        separated: labelRect.right + 4 <= valueRect.left,
+      };
+    });
+
+    expect(result).not.toHaveProperty('error');
+    expect((result as any).display).toBe('flex');
+    expect((result as any).separated).toBe(true);
+  });
+
   test('infobox remains visible when toggling display mode', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
