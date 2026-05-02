@@ -42,27 +42,35 @@ function drawDifferenceGraph(
     return;
   }
 
-  let differences = [];
-  const graphStart = minTime;
-  const graphEnd = tracks.reduce(
-    (a, c) => Math.min(a, c[c.length - 1].time),
-    Infinity,
-  );
-  let comparisonTracks = tracks.slice(1);
+  const leader = tracks[0];
+  const leaderMaxDist = leader[leader.length - 1].displayDistance;
+  const comparisonTracks = tracks.slice(1);
+  const differences = [];
 
-  for (let t = graphStart; t <= graphEnd; t += 1) {
-    const baseline = getValueAtPosition(tracks[0], "time", t, y_name);
-    const x_value =
-      x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
+  for (let ci = 0; ci < comparisonTracks.length; ci++) {
+    const comp = comparisonTracks[ci];
+    const compEnd = comp[comp.length - 1].time;
+    const trackLabel = getTrackDisplayName(ci + 1);
 
-    comparisonTracks.map((track, ci) => {
-      const comparator = getValueAtPosition(track, x_name, x_value, y_name);
-      differences.push({
-        time: t,
-        diff: transform(comparator) - transform(baseline),
-        trackLabel: getTrackDisplayName(ci + 1),
-      });
-    });
+    for (let t = minTime; t <= compEnd; t += 1) {
+      let diff;
+      if (y_name === "time") {
+        // Follower-anchored: how long ago did the leader pass the comp's current position.
+        const d_comp = getValueAtPosition(comp, "time", t, "displayDistance");
+        if (d_comp == null || isNaN(d_comp)) continue;
+        if (d_comp > leaderMaxDist) continue;
+        const tLeaderAtDComp = getValueAtPosition(leader, "displayDistance", d_comp, "time");
+        if (tLeaderAtDComp == null || isNaN(tLeaderAtDComp)) continue;
+        diff = transform(t) - transform(tLeaderAtDComp);
+      } else {
+        const x_value = x_name === "time" ? t : getValueAtPosition(leader, "time", t, x_name);
+        const baseline = getValueAtPosition(leader, "time", t, y_name);
+        const comparator = getValueAtPosition(comp, x_name, x_value, y_name);
+        if (baseline == null || comparator == null) continue;
+        diff = transform(comparator) - transform(baseline);
+      }
+      differences.push({ time: t, diff, trackLabel });
+    }
   }
 
   const graphContainer = document.getElementById("graph");
@@ -75,17 +83,12 @@ function drawDifferenceGraph(
         y: "diff",
         stroke: (d) => d.trackLabel,
       }),
-      Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      /*
-      Plot.text([{ x: currentTime, y: 0, label: "Diff" }], {
-        x: "x",
-        y: "y",
-        text: "label",
-      }),*/
+      Plot.ruleX([currentTime], { stroke: "red" }),
     ],
     x: {
       type: "linear",
       label: "Time (s)",
+      domain: [minTime, maxTime],
     },
     y: {
       label: y_label,

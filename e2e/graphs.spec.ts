@@ -277,6 +277,113 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(timeDiff).toBeLessThan(30);
   });
 
+  test('time-behind graph extends to slowest runner finish', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // hairpin-fast finishes in 80s (leader), hairpin-slow finishes in 240s (comp)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    // Verify all_match is true (same course, single overlapping segment)
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Both elevation + diff graphs should be present
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    const info = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leaderEnd = tracks[0][tracks[0].length - 1].time;
+      const compEnd = tracks[1][tracks[1].length - 1].time;
+
+      // Read x-axis tick labels from the diff graph SVG (second SVG)
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      const tickValues = Array.from(diffSvg.querySelectorAll('text'))
+        .map((el) => parseFloat((el as HTMLElement).textContent || ''))
+        .filter((v) => !isNaN(v) && v > 0);
+      const maxTick = tickValues.length ? Math.max(...tickValues) : 0;
+
+      return { leaderEnd, compEnd, maxTick };
+    });
+
+    // Confirm fixture setup: slow runner finishes later than fast runner
+    expect(info.compEnd).toBeGreaterThan(info.leaderEnd);
+
+    // The diff graph x-axis must extend well past the leader's finish
+    expect(info.maxTick).toBeGreaterThan(info.leaderEnd);
+  });
+
+  test('time-behind value at leader finish is non-flat (keeps growing)', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Compute time-behind at leader-finish and near the comp's finish using
+    // the same follower-anchored formula as graphs.js.
+    const values = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leader = tracks[0];
+      const comp = tracks[1];
+      const leaderEnd = leader[leader.length - 1].time;
+      const compEnd = comp[comp.length - 1].time;
+      const leaderMaxDist = leader[leader.length - 1].displayDistance;
+
+      function gvap(track: any[], posField: string, pos: number, valField: string): number {
+        if (pos <= track[0][posField]) return track[0][valField];
+        if (pos >= track[track.length - 1][posField]) return track[track.length - 1][valField];
+        for (let i = 1; i < track.length; i++) {
+          if (track[i][posField] >= pos) {
+            const t0 = track[i - 1][posField], t1 = track[i][posField];
+            const v0 = track[i - 1][valField], v1 = track[i][valField];
+            return v0 + (pos - t0) / (t1 - t0) * (v1 - v0);
+          }
+        }
+        return track[track.length - 1][valField];
+      }
+
+      function timeBehindAt(t: number): number | null {
+        const d = gvap(comp, 'time', t, 'displayDistance');
+        if (d > leaderMaxDist) return null;
+        const tL = gvap(leader, 'displayDistance', d, 'time');
+        return t - tL;
+      }
+
+      const atLeaderEnd = timeBehindAt(leaderEnd);
+      // Sample partway through the comp's remaining run
+      const atMidExtra = timeBehindAt(leaderEnd + (compEnd - leaderEnd) * 0.5);
+      const atCompEnd = timeBehindAt(compEnd);
+
+      return { leaderEnd, compEnd, atLeaderEnd, atMidExtra, atCompEnd };
+    });
+
+    // At the leader's finish, the slow runner is behind
+    expect(values.atLeaderEnd).not.toBeNull();
+    expect(values.atLeaderEnd!).toBeGreaterThan(0);
+
+    // Time-behind continues growing past the leader's finish
+    expect(values.atMidExtra).not.toBeNull();
+    expect(values.atMidExtra!).toBeGreaterThan(values.atLeaderEnd!);
+
+    // At comp's finish, time-behind equals the full gap between finishes
+    expect(values.atCompEnd).not.toBeNull();
+    const expectedFinalGap = values.compEnd - values.leaderEnd;
+    expect(values.atCompEnd!).toBeCloseTo(expectedFinalGap, 0);
+  });
+
   test('harmonized tracks have continuous displayDistance across segments', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
