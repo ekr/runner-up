@@ -73,6 +73,6 @@ test.describe('Hash Reload Labels', () => {
 
     // Legend should show the date (default behavior).
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toContainText('Mon Jan 15 2024');
+    await expect(legendText).toContainText('Jan 15, 2024');
   });
 });

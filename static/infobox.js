@@ -128,6 +128,24 @@ function renderInfobox(container, info, units) {
     box.appendChild(row);
   }
 
+  function addStackedRow(label, value, trackIndex) {
+    const row = document.createElement('div');
+    row.className = 'infobox-stacked-row';
+    const labelEl = document.createElement('span');
+    labelEl.className = 'infobox-stacked-label';
+    labelEl.textContent = label;
+    if (trackIndex != null && typeof getColor === 'function') {
+      labelEl.style.color = getColor(trackIndex);
+      labelEl.style.fontWeight = '600';
+    }
+    const valueEl = document.createElement('span');
+    valueEl.className = 'infobox-stacked-value';
+    valueEl.textContent = value;
+    row.appendChild(labelEl);
+    row.appendChild(valueEl);
+    box.appendChild(row);
+  }
+
   function addHeader(text) {
     const el = document.createElement('div');
     el.className = 'infobox-section-header';
@@ -145,11 +163,11 @@ function renderInfobox(container, info, units) {
     addRow('Distance', formatDist(info.distance));
   } else if (info.type === 'fallback') {
     for (const t of info.tracks) {
-      addRow(t.name, formatDist(t.distance), t.index);
+      addStackedRow(t.name, formatDist(t.distance), t.index);
     }
   } else if (info.type === 'race') {
     addHeader('Leader');
-    addRow(info.leader.name, formatDist(info.leader.distance), info.leader.index);
+    addStackedRow(info.leader.name, formatDist(info.leader.distance), info.leader.index);
 
     for (const f of info.followers) {
       addHeader('Behind');
@@ -157,7 +175,7 @@ function renderInfobox(container, info, units) {
         ? `+${formatTime(f.timeBehind)}`
         : 'not yet reached';
       const distStr = `-${units.distanceValue(f.distanceBehind).toFixed(2)} ${units.distanceUnits()}`;
-      addRow(f.name, `${timeStr} · ${distStr}`, f.index);
+      addStackedRow(f.name, `${timeStr} · ${distStr}`, f.index);
     }
   }
 

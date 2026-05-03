@@ -160,11 +160,14 @@ body {
     position: absolute;
     top: 10px;
     right: 10px;
+    bottom: 10px;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     gap: 8px;
     width: 280px;
+    overflow-y: auto;
+    max-height: calc(100% - 20px);
 }
 
 .overlay-card {
@@ -274,6 +277,7 @@ body {
 #legend-container {
     max-height: 300px;
     overflow-y: auto;
+    font-size: 13px;
 }
 
 #legend-container:empty {
@@ -300,6 +304,23 @@ body {
 .infobox-value {
     color: #222;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.infobox-stacked-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.infobox-stacked-label {
+    color: #555;
+}
+
+.infobox-stacked-value {
+    color: #222;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .infobox-section-header {
@@ -318,8 +339,8 @@ body {
 .legend-row {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 6px;
+    gap: 5px;
+    margin-bottom: 4px;
     line-height: 1.3;
 }
 

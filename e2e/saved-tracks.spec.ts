@@ -42,8 +42,8 @@ test.describe('Saved Tracks Dropdown', () => {
     // Should have placeholder + 2 tracks = 3 options
     await expect(options).toHaveCount(3);
     // Dropdown text is now the start date+time of the GPX track
-    await expect(options.nth(1)).toContainText('Mon Jan 15 2024');
-    await expect(options.nth(2)).toContainText('Tue Jan 16 2024');
+    await expect(options.nth(1)).toContainText('Jan 15, 2024');
+    await expect(options.nth(2)).toContainText('Jan 16, 2024');
   });
 
   test('should load correct track when selected from dropdown', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('Saved Tracks Dropdown', () => {
     const dropdown = page.locator(selectors.savedTracksDropdown);
 
     // Verify dropdown has correct label (now shows track date+time)
-    await expect(dropdown.locator('option').nth(1)).toContainText('Mon Jan 15 2024');
+    await expect(dropdown.locator('option').nth(1)).toContainText('Jan 15, 2024');
 
     // Select by index since label now includes time (timezone-dependent)
     await dropdown.selectOption({ index: 1 });
@@ -62,7 +62,7 @@ test.describe('Saved Tracks Dropdown', () => {
     // Track should be displayed on map
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     // Verify it's the correct track by checking the date (track1 is Jan 15 2024)
-    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 15 2024');
+    await expect(page.locator(selectors.legendContainer)).toContainText('Jan 15, 2024');
   });
 
   test('should remove loaded track from dropdown', async ({ page }) => {
@@ -81,7 +81,7 @@ test.describe('Saved Tracks Dropdown', () => {
 
     // Dropdown should now only have placeholder + track2 (track1 is being displayed)
     await expect(dropdown.locator('option')).toHaveCount(2);
-    await expect(dropdown.locator('option').nth(1)).toContainText('Tue Jan 16 2024');
+    await expect(dropdown.locator('option').nth(1)).toContainText('Jan 16, 2024');
   });
 
   test('should remove track from display on delete click', async ({ page }) => {
@@ -204,7 +204,7 @@ test.describe('Saved Tracks Dropdown', () => {
     await expect(options).toHaveCount(3); // placeholder + 2 tracks
 
     // track2 (Jan 16) should appear before hairpin-fast (Jan 01) because it's closer
-    await expect(options.nth(1)).toContainText('Tue Jan 16 2024'); // track2
-    await expect(options.nth(2)).toContainText('Mon Jan 01 2024'); // hairpin-fast
+    await expect(options.nth(1)).toContainText('Jan 16, 2024'); // track2
+    await expect(options.nth(2)).toContainText('Jan 1, 2024'); // hairpin-fast
   });
 });

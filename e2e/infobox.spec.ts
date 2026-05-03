@@ -181,6 +181,95 @@ test.describe('Leader Infobox', () => {
     expect((result as any).separated).toBe(true);
   });
 
+  test('infobox stacked value has white-space nowrap and does not wrap mid-unit', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track2.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+
+    const infobox = page.locator('#infobox-container');
+    await expect(infobox).toBeVisible({ timeout: 3000 });
+
+    const result = await page.evaluate(() => {
+      const span = document.querySelector('.infobox-stacked-value') as HTMLElement;
+      if (!span) return { error: 'no .infobox-stacked-value found' };
+      const style = getComputedStyle(span);
+      const rect = span.getBoundingClientRect();
+      const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+      return {
+        whiteSpace: style.whiteSpace,
+        height: rect.height,
+        lineHeight,
+        singleLine: rect.height <= lineHeight * 1.5,
+      };
+    });
+
+    expect(result).not.toHaveProperty('error');
+    expect((result as any).whiteSpace).toBe('nowrap');
+    expect((result as any).singleLine).toBe(true);
+  });
+
+  test('legend label fits on one line for default date format', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    const result = await page.evaluate(() => {
+      const legendText = document.querySelector('#legend-text') as HTMLElement;
+      if (!legendText) return { error: 'no #legend-text found' };
+      const style = getComputedStyle(legendText);
+      const rect = legendText.getBoundingClientRect();
+      const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+      return {
+        height: rect.height,
+        lineHeight,
+        singleLine: rect.height <= lineHeight * 1.5,
+        scrollWidth: legendText.scrollWidth,
+        clientWidth: legendText.clientWidth,
+      };
+    });
+
+    expect(result).not.toHaveProperty('error');
+    expect((result as any).singleLine).toBe(true);
+  });
+
+  test('overlay does not cover slider on desktop', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+    const fixtures = [
+      'track1.gpx', 'track2.gpx', 'sample-track.gpx',
+      'hairpin-fast.gpx', 'main-route-with-loop.gpx', 'main-route-no-loop.gpx',
+    ];
+
+    for (const fixture of fixtures) {
+      await fileInput.setInputFiles(path.join(fixturesDir, fixture));
+      await expect(page.locator(selectors.legendEntry)).toHaveCount(
+        fixtures.indexOf(fixture) + 1, { timeout: 5000 }
+      );
+    }
+
+    const result = await page.evaluate(() => {
+      const overlayRight = document.getElementById('overlay-right') as HTMLElement;
+      const sliderContainer = document.getElementById('slider-container') as HTMLElement;
+      if (!overlayRight || !sliderContainer) return { error: 'missing elements' };
+      const overlayRect = overlayRight.getBoundingClientRect();
+      const sliderRect = sliderContainer.getBoundingClientRect();
+      const style = getComputedStyle(overlayRight);
+      return {
+        overlayBottom: overlayRect.bottom,
+        sliderTop: sliderRect.top,
+        overflowY: style.overflowY,
+        notCoveringSlider: overlayRect.bottom <= sliderRect.top,
+      };
+    });
+
+    expect(result).not.toHaveProperty('error');
+    expect((result as any).overflowY).toBe('auto');
+    expect((result as any).notCoveringSlider).toBe(true);
+  });
+
   test('infobox remains visible when toggling display mode', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
