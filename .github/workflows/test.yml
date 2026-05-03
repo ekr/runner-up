@@ -81,8 +81,20 @@ jobs:
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_REPOSITORY: ${{ github.repository }}
 
+      - name: Generate comment body (fork PR)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        env:
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          SHORT="${PR_SHA:0:7}"
+          mkdir -p screenshots
+          printf -- '<!-- pr-screenshots:auto -->\n## Rendered screenshots\n\n_Generated for [`%s`](https://github.com/%s/commit/%s)._\n\nScreenshots are available as a [workflow artifact](https://github.com/%s/actions/runs/%s).\n' \
+            "$SHORT" "$GITHUB_REPOSITORY" "$PR_SHA" \
+            "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
+            > screenshots/.comment-body.md
+
       - name: Post sticky PR comment
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: pr-screenshots
