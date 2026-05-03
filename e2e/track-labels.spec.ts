@@ -24,9 +24,9 @@ test.describe('Track Labels', () => {
 
     const legendText = page.locator('#legend-container #legend-text');
     // Should show the date by default
-    await expect(legendText).toContainText('Mon Jan 15 2024');
+    await expect(legendText).toContainText('Jan 15, 2024');
     // Should have a title tooltip with the date
-    await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
+    await expect(legendText).toHaveAttribute('title', /Jan 15, 2024/);
   });
 
   test('should rename track via legend click', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('Track Labels', () => {
     // Legend should now show the new name
     await expect(legendText).toHaveText('Morning Run');
     // Tooltip should still show the date
-    await expect(legendText).toHaveAttribute('title', /Mon Jan 15 2024/);
+    await expect(legendText).toHaveAttribute('title', /Jan 15, 2024/);
   });
 
   test('should rename track via legend pencil button', async ({ page }) => {
@@ -106,7 +106,7 @@ test.describe('Track Labels', () => {
     await input.press('Enter');
 
     // Should revert to date display
-    await expect(legendText).toContainText('Mon Jan 15 2024');
+    await expect(legendText).toContainText('Jan 15, 2024');
   });
 
   test('should cancel rename on Escape', async ({ page }) => {
@@ -183,7 +183,7 @@ test.describe('Track Labels', () => {
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
 
     const legendText = page.locator('#legend-container #legend-text');
-    await expect(legendText).toContainText('Mon Jan 15 2024');
+    await expect(legendText).toContainText('Jan 15, 2024');
     await expect(legendText).not.toContainText('(testuser)');
   });
 

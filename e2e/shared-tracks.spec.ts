@@ -34,7 +34,7 @@ test.describe('Shared Tracks', () => {
 
     // Should have an option with "(alice)" suffix.
     await expect(options.filter({ hasText: '(alice)' })).toHaveCount(1);
-    await expect(options.filter({ hasText: '(alice)' })).toContainText('Mon Jan 15 2024');
+    await expect(options.filter({ hasText: '(alice)' })).toContainText('Jan 15, 2024');
   });
 
   test('should load shared track when selected from dropdown', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('Shared Tracks', () => {
 
     // Track should be displayed on map.
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
-    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 15 2024');
+    await expect(page.locator(selectors.legendContainer)).toContainText('Jan 15, 2024');
   });
 
   test('should remove shared track from list on shift+click delete', async ({ page }) => {

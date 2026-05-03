@@ -32,7 +32,7 @@ test.describe('GPX URL import', () => {
     await page.locator('#track-url-btn').click();
 
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
-    await expect(page.locator(selectors.legendContainer)).toContainText('Mon Jan 01 2024');
+    await expect(page.locator(selectors.legendContainer)).toContainText('Jan 1, 2024');
 
     // Input is cleared and no error is shown on success.
     await expect(page.locator('#track-url')).toHaveValue('');

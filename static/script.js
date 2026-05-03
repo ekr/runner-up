@@ -484,7 +484,7 @@ async function populateSavedTracks() {
         displayText = entry.label;
       } else if (entry.date) {
         const d = new Date(entry.date);
-        const date = d.toDateString();
+        const date = d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         displayText = `${date} ${time}`;
       } else {
@@ -500,7 +500,7 @@ async function populateSavedTracks() {
         displayText = entry.label;
       } else if (entry.date) {
         const d = new Date(entry.date);
-        const date = d.toDateString();
+        const date = d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         displayText = `${date} ${time}`;
       } else {

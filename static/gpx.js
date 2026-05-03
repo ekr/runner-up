@@ -48,7 +48,7 @@ function parseGPX(gpxData) {
 
 function getStartDate(track) {
   const startDate = new Date(track[0].absoluteTime * 1000);
-  const date = startDate.toDateString();
+  const date = startDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
   const time = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${date} ${time}`;
 }
