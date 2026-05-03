@@ -13,7 +13,7 @@ SHORT_SHA="${GITHUB_SHA:0:7}"
 DEST_PATH="pr/${PR_NUMBER}/${GITHUB_SHA}"
 WORKSPACE_DIR="$(pwd)"
 SCREENSHOTS_SRC="${WORKSPACE_DIR}/screenshots"
-COMMENT_BODY="${SCREENSHOTS_SRC}/.comment-body.md"
+COMMENT_BODY="${SCREENSHOTS_SRC}/comment-body.md"
 
 git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git config --global user.name "github-actions[bot]"
@@ -43,14 +43,13 @@ cd "$WORK_DIR/repo"
 rm -rf "pr/${PR_NUMBER}"
 
 # Copy new screenshots into place
+shopt -s nullglob
+pngs=("${SCREENSHOTS_SRC}"/*.png)
+(( ${#pngs[@]} > 0 )) || { echo "No screenshots found in ${SCREENSHOTS_SRC}" >&2; exit 1; }
 mkdir -p "$DEST_PATH"
-cp "${SCREENSHOTS_SRC}"/*.png "$DEST_PATH/"
+cp "${pngs[@]}" "$DEST_PATH/"
 
-git add -A
-git commit -m "screenshots: PR #${PR_NUMBER} @ ${SHORT_SHA}"
-git push "$REPO_URL" "$BRANCH"
-
-# Build the comment body with inline image links
+# Build the comment body before pushing so a push failure doesn't suppress it
 OWNER_REPO="${GITHUB_REPOSITORY}"
 RAW_BASE="https://raw.githubusercontent.com/${OWNER_REPO}/${BRANCH}/${DEST_PATH}"
 
@@ -68,3 +67,10 @@ _Click an image to open full-size._
 EOF
 
 echo "Comment body written to $COMMENT_BODY"
+
+git add -A
+# Skip the commit if screenshots are byte-identical to the previous push for this PR
+if ! git diff --cached --quiet; then
+  git commit -m "screenshots: PR #${PR_NUMBER} @ ${SHORT_SHA}"
+fi
+git push "$REPO_URL" "$BRANCH"
