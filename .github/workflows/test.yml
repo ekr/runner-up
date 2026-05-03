@@ -65,13 +65,6 @@ jobs:
       - name: Capture screenshots
         run: node scripts/capture-screenshots.mjs
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-screenshots
-          path: screenshots/
-          retention-days: 30
-
       - name: Publish screenshots to pr-screenshots branch
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: bash scripts/publish-screenshots.sh
@@ -81,21 +74,25 @@ jobs:
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_REPOSITORY: ${{ github.repository }}
 
-      - name: Generate comment body (fork PR)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+      - name: Prepare comment metadata
+        if: github.event_name == 'pull_request'
         env:
           PR_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          SHORT="${PR_SHA:0:7}"
-          mkdir -p screenshots
-          printf -- '<!-- pr-screenshots:auto -->\n## Rendered screenshots\n\n_Generated for [`%s`](https://github.com/%s/commit/%s)._\n\nScreenshots are available as a [workflow artifact](https://github.com/%s/actions/runs/%s).\n' \
-            "$SHORT" "$GITHUB_REPOSITORY" "$PR_SHA" \
-            "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
-            > screenshots/.comment-body.md
+          echo "$PR_NUMBER" > screenshots/.pr-number
+          if [[ "$SAME_REPO" != "true" ]]; then
+            SHORT="${PR_SHA:0:7}"
+            printf '<!-- pr-screenshots:auto -->\n## Rendered screenshots\n\n_Generated for [`%s`](https://github.com/%s/commit/%s)._\n\nScreenshots are available as a [workflow artifact](https://github.com/%s/actions/runs/%s).\n' \
+              "$SHORT" "$GITHUB_REPOSITORY" "$PR_SHA" \
+              "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
+              > screenshots/.comment-body.md
+          fi
 
-      - name: Post sticky PR comment
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          header: pr-screenshots
-          path: screenshots/.comment-body.md
+          name: pr-screenshots
+          path: screenshots/
+          retention-days: 30
