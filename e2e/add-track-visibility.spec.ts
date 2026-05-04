@@ -123,19 +123,12 @@ test.describe('Add-track visibility', () => {
       await expect(page.locator(selectors.addTrackContainer)).toBeVisible();
     });
 
-    test('should show all three method groups on the same row when expanded', async ({ page }) => {
+    test('should show all three method groups when expanded', async ({ page }) => {
       // Wait for auth to take effect (saved-tracks group becomes visible).
       await expect(page.locator('.js-needs-login')).toBeVisible();
 
       const groups = page.locator('.add-track-content .method-group');
       await expect(groups).toHaveCount(3);
-
-      const bottoms = await groups.evaluateAll(els =>
-        els.map(el => el.getBoundingClientRect().bottom)
-      );
-      // align-items: flex-end means groups share a bottom edge on the same row.
-      expect(bottoms[1]).toBeCloseTo(bottoms[0], 0);
-      expect(bottoms[2]).toBeCloseTo(bottoms[0], 0);
     });
   });
 
@@ -154,6 +147,26 @@ test.describe('Add-track visibility', () => {
         el => el.getBoundingClientRect().top
       );
       expect(addTrackBottom).toBeLessThanOrEqual(mapTop);
+    });
+
+    test('should be approximately 280px wide on desktop', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const width = await page.locator(selectors.addTrackContainer).evaluate(
+        el => el.getBoundingClientRect().width
+      );
+      expect(width).toBeGreaterThanOrEqual(270);
+      expect(width).toBeLessThanOrEqual(280);
+    });
+
+    test('should left-align with #map-container', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const addTrackLeft = await page.locator(selectors.addTrackContainer).evaluate(
+        el => el.getBoundingClientRect().left
+      );
+      const mapContainerLeft = await page.locator('#map-container').evaluate(
+        el => el.getBoundingClientRect().left
+      );
+      expect(addTrackLeft).toBeCloseTo(mapContainerLeft, 0);
     });
   });
 });

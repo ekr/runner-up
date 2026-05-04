@@ -190,6 +190,9 @@ body {
 
 #add-track {
     margin: 10px 0;
+    width: 280px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .add-track-content {
