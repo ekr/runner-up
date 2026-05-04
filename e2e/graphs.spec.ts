@@ -365,21 +365,28 @@ test.describe('displayTime in non-overlapping segments', () => {
       const tracks = (window as any).tracks;
       const leaderEnd = tracks[0][tracks[0].length - 1].time;
       const compEnd = tracks[1][tracks[1].length - 1].time;
-
-      const diffSvg = document.querySelectorAll('#graph svg')[1];
-      const tickValues = Array.from(diffSvg.querySelectorAll('text'))
-        .map((el) => parseFloat((el as HTMLElement).textContent || ''))
-        .filter((v) => !isNaN(v) && v > 0);
-      const maxTick = tickValues.length ? Math.max(...tickValues) : 0;
-
-      return { leaderEnd, compEnd, maxTick };
+      return { leaderEnd, compEnd };
     });
 
     // Confirm fixture setup: fast comp finishes before slow leader
     expect(info.compEnd).toBeLessThan(info.leaderEnd);
 
-    // The diff graph x-axis must extend past the comp's finish (fast runner)
-    expect(info.maxTick).toBeGreaterThan(info.compEnd);
+    // Count L-segment commands in the diff graph's path element. Plot.line
+    // with the default linear curve emits one L per data point (after the
+    // opening M), so this count equals the number of loop iterations that
+    // produced a valid diff value. Without the fix the loop stopped at
+    // compEnd (~80 iterations → ~80 L commands); with the fix it runs to
+    // leaderEnd (~240 iterations → ~240 L commands).
+    const lineSegments = await page.evaluate(() => {
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      let maxL = 0;
+      diffSvg.querySelectorAll('path').forEach((p) => {
+        const lCount = (p.getAttribute('d') || '').split('L').length - 1;
+        maxL = Math.max(maxL, lCount);
+      });
+      return maxL;
+    });
+    expect(lineSegments).toBeGreaterThan(info.compEnd);
   });
 
   test('time-behind value at leader finish is non-flat (keeps growing)', async ({ page }) => {
