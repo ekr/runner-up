@@ -43,30 +43,30 @@
   <div id="logged-out-banner" style="display: none;">Not logged in. Tracks will not be stored or shareable.</div>
 
   <div>
+    <details id="add-track" class="overlay-card" open>
+      <summary>Add Track</summary>
+      <div class="add-track-content">
+        <div class="method-group">
+          <label id="file-label" for="track">Upload GPX file</label>
+          <input type="file" id="track">
+        </div>
+        <div class="method-group">
+          <div id="url-add">
+            <input type="url" id="track-url" placeholder="GPX URL" autocomplete="off">
+            <button type="button" id="track-url-btn">Add</button>
+          </div>
+          <span id="track-url-error" class="auth-error"></span>
+        </div>
+        <div class="method-group js-needs-login">
+          <select id="saved-tracks">
+            <option value="" disabled selected>Select a saved track...</option>
+          </select>
+        </div>
+      </div>
+    </details>
     <div id="map-container">
       <div id="map"></div>
       <div id="overlay-right">
-        <details id="add-track" class="overlay-card" open>
-          <summary>Add Track</summary>
-          <div class="add-track-content">
-            <div class="method-group">
-              <label id="file-label" for="track">Upload GPX file</label>
-              <input type="file" id="track">
-            </div>
-            <div class="method-group">
-              <div id="url-add">
-                <input type="url" id="track-url" placeholder="GPX URL" autocomplete="off">
-                <button type="button" id="track-url-btn">Add</button>
-              </div>
-              <span id="track-url-error" class="auth-error"></span>
-            </div>
-            <div class="method-group">
-              <select id="saved-tracks">
-                <option value="" disabled selected>Select a saved track...</option>
-              </select>
-            </div>
-          </div>
-        </details>
 
         <div id="display-mode" class="overlay-card" style="display: none;">
           <div id="alignment-summary"></div>

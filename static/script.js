@@ -670,6 +670,11 @@ function updateAuthUI() {
     headerAvatarImg.classList.remove("loaded");
   }
 
+  // Hide/show elements that require login (e.g., saved-tracks method group).
+  document.querySelectorAll('.js-needs-login').forEach(el => {
+    el.style.display = isLoggedIn() ? '' : 'none';
+  });
+
   // Always explicitly set add-track visibility based on track count.
   addTrack.style.display = data.length < MAX_TRACKS ? "block" : "none";
 }

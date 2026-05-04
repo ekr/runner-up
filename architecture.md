@@ -28,10 +28,13 @@ All modules are plain browser-global JS scripts loaded in order in `index.html`.
 3. `displayTracks()` clones `data` into `tracks[]`, applies normalization/harmonization, sets `point.displayDistance` on every point, redraws the map and legend, and calls `updateMarkers()`.
 4. `updateMarkers()` fires on every slider tick: repositions map markers, redraws graphs, and re-renders the infobox.
 
-## Map Overlay Layout
+## Page Layout
+
+The top-level DOM order is: logo/auth-bar → `#add-track` → `#map-container` → slider → graphs → footer.
+
+`#add-track` is a full-width collapsible `<details>` card sitting in document flow directly above the map. When expanded, its three method-groups (file upload, URL, saved tracks) render on a single horizontal row; on mobile (≤767px) they stack vertically. The saved-tracks group carries `class="js-needs-login"` and is toggled by `updateAuthUI()` based on auth state.
 
 The map container uses `position: relative`. Overlaid UI sits in `#overlay-right` — a column absolutely positioned at `top: 10px; right: 10px; bottom: 10px; z-index: 1000; overflow-y: auto`. The `bottom: 10px` constraint prevents the overlay from extending past the map container, so it can never visually cover the time slider below the map. It contains:
-- `#add-track` — collapsible `<details>` card for uploading/adding tracks
 - `#display-mode` — toggle between full and overlapping regions (visible when aligned)
 - `#legend-container` — per-track color swatches, rename, delete, download (font-size: 13px)
 - `#infobox-container` — live leader/follower stats (hidden when no tracks loaded)

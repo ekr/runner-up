@@ -24,6 +24,10 @@ test.describe('Add-track visibility', () => {
       await expect(page.locator(selectors.savedTracksDropdown)).toBeHidden();
     });
 
+    test('should hide saved-tracks method group when logged out', async ({ page }) => {
+      await expect(page.locator('.js-needs-login')).toBeHidden();
+    });
+
     test('should show logged-out banner when not logged in', async ({ page }) => {
       await expect(page.locator(selectors.loggedOutBanner)).toBeVisible();
       await expect(page.locator(selectors.authLoginForm)).toBeVisible();
@@ -117,6 +121,36 @@ test.describe('Add-track visibility', () => {
 
       // Add-track should remain visible — max is 5, not 2.
       await expect(page.locator(selectors.addTrackContainer)).toBeVisible();
+    });
+
+    test('should show all three method groups on the same row when expanded', async ({ page }) => {
+      const groups = page.locator('.add-track-content .method-group');
+      await expect(groups).toHaveCount(3);
+
+      const tops = await groups.evaluateAll(els =>
+        els.map(el => el.getBoundingClientRect().top)
+      );
+      // All three groups should share the same top edge (same row).
+      expect(tops[1]).toBeCloseTo(tops[0], 0);
+      expect(tops[2]).toBeCloseTo(tops[0], 0);
+    });
+  });
+
+  test.describe('layout', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/');
+      await clearLocalStorageNow(page);
+      await page.reload();
+    });
+
+    test('should be positioned above the map', async ({ page }) => {
+      const addTrackBottom = await page.locator(selectors.addTrackContainer).evaluate(
+        el => el.getBoundingClientRect().bottom
+      );
+      const mapTop = await page.locator(selectors.mapContainer).evaluate(
+        el => el.getBoundingClientRect().top
+      );
+      expect(addTrackBottom).toBeLessThanOrEqual(mapTop);
     });
   });
 });
