@@ -188,17 +188,25 @@ body {
     letter-spacing: 0.5px;
 }
 
+#add-track {
+    margin: 10px 0;
+}
+
 .add-track-content {
     margin-top: 10px;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 20px;
 }
 
 .method-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
+    flex: 0 1 auto;
 }
 
 #file-label {
@@ -770,6 +778,7 @@ body.settings-page {
 @media (max-width: 767px) {
   #map { height: 50vh; }
   #map-container { position: static; }
+  .add-track-content { flex-direction: column; gap: 12px; align-items: stretch; }
   /* #63 made the individual containers static but left #overlay-right
      position: absolute. With #map-container now static, overlay-right's
      absolute positioning falls back to the initial containing block and
