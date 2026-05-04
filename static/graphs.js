@@ -49,10 +49,9 @@ function drawDifferenceGraph(
 
   for (let ci = 0; ci < comparisonTracks.length; ci++) {
     const comp = comparisonTracks[ci];
-    const compEnd = comp[comp.length - 1].time;
     const trackLabel = getTrackDisplayName(ci + 1);
 
-    for (let t = minTime; t <= compEnd; t += 1) {
+    for (let t = minTime; t <= maxTime; t += 1) {
       let diff;
       if (y_name === "time") {
         // Follower-anchored: how long ago did the leader pass the comp's current position.

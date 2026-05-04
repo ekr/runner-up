@@ -344,6 +344,44 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(info.maxTick).toBeGreaterThan(info.leaderEnd);
   });
 
+  test('time-behind graph extends past comp finish when slow track uploaded first', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload slow runner first (becomes tracks[0] leader), fast runner second (becomes tracks[1] comp)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    const info = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leaderEnd = tracks[0][tracks[0].length - 1].time;
+      const compEnd = tracks[1][tracks[1].length - 1].time;
+
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      const tickValues = Array.from(diffSvg.querySelectorAll('text'))
+        .map((el) => parseFloat((el as HTMLElement).textContent || ''))
+        .filter((v) => !isNaN(v) && v > 0);
+      const maxTick = tickValues.length ? Math.max(...tickValues) : 0;
+
+      return { leaderEnd, compEnd, maxTick };
+    });
+
+    // Confirm fixture setup: fast comp finishes before slow leader
+    expect(info.compEnd).toBeLessThan(info.leaderEnd);
+
+    // The diff graph x-axis must extend past the comp's finish (fast runner)
+    expect(info.maxTick).toBeGreaterThan(info.compEnd);
+  });
+
   test('time-behind value at leader finish is non-flat (keeps growing)', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
