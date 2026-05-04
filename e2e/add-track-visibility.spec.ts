@@ -124,15 +124,18 @@ test.describe('Add-track visibility', () => {
     });
 
     test('should show all three method groups on the same row when expanded', async ({ page }) => {
+      // Wait for auth to take effect (saved-tracks group becomes visible).
+      await expect(page.locator('.js-needs-login')).toBeVisible();
+
       const groups = page.locator('.add-track-content .method-group');
       await expect(groups).toHaveCount(3);
 
-      const tops = await groups.evaluateAll(els =>
-        els.map(el => el.getBoundingClientRect().top)
+      const bottoms = await groups.evaluateAll(els =>
+        els.map(el => el.getBoundingClientRect().bottom)
       );
-      // All three groups should share the same top edge (same row).
-      expect(tops[1]).toBeCloseTo(tops[0], 0);
-      expect(tops[2]).toBeCloseTo(tops[0], 0);
+      // align-items: flex-end means groups share a bottom edge on the same row.
+      expect(bottoms[1]).toBeCloseTo(bottoms[0], 0);
+      expect(bottoms[2]).toBeCloseTo(bottoms[0], 0);
     });
   });
 
