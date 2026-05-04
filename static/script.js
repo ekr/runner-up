@@ -636,7 +636,6 @@ function updateAuthUI() {
   const addTrack = document.getElementById("add-track");
 
   const banner = document.getElementById("logged-out-banner");
-  const savedTracks = document.getElementById("saved-tracks");
 
   const headerAvatarImg = document.getElementById("header-avatar-img");
   const headerAvatarPlaceholder = document.getElementById("header-avatar-placeholder");
@@ -646,7 +645,6 @@ function updateAuthUI() {
     registerForm.style.display = "none";
     authStatus.style.display = "flex";
     banner.style.display = "none";
-    savedTracks.style.display = "";
     const username = getUsername();
     document.getElementById("auth-username-display").textContent = username;
 
@@ -666,7 +664,6 @@ function updateAuthUI() {
     registerForm.style.display = "none";
     authStatus.style.display = "none";
     banner.style.display = "block";
-    savedTracks.style.display = "none";
     headerAvatarImg.classList.remove("loaded");
   }
 
