@@ -344,6 +344,51 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(info.maxTick).toBeGreaterThan(info.leaderEnd);
   });
 
+  test('time-behind graph extends past comp finish when slow track uploaded first', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload slow runner first (becomes tracks[0] leader), fast runner second (becomes tracks[1] comp)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    const info = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leaderEnd = tracks[0][tracks[0].length - 1].time;
+      const compEnd = tracks[1][tracks[1].length - 1].time;
+      return { leaderEnd, compEnd };
+    });
+
+    // Confirm fixture setup: fast comp finishes before slow leader
+    expect(info.compEnd).toBeLessThan(info.leaderEnd);
+
+    // Count L-segment commands in the diff graph's path element. Plot.line
+    // with the default linear curve emits one L per data point (after the
+    // opening M), so this count equals the number of loop iterations that
+    // produced a valid diff value. Without the fix the loop stopped at
+    // compEnd (~80 iterations → ~80 L commands); with the fix it runs to
+    // leaderEnd (~240 iterations → ~240 L commands).
+    const lineSegments = await page.evaluate(() => {
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      let maxL = 0;
+      diffSvg.querySelectorAll('path').forEach((p) => {
+        const lCount = (p.getAttribute('d') || '').split('L').length - 1;
+        maxL = Math.max(maxL, lCount);
+      });
+      return maxL;
+    });
+    expect(lineSegments).toBeGreaterThan(info.compEnd);
+  });
+
   test('time-behind value at leader finish is non-flat (keeps growing)', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
