@@ -455,6 +455,202 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(values.atCompEnd!).toBeCloseTo(expectedFinalGap, 0);
   });
 
+  test('time-behind value is monotone past comp finish when slow track uploaded first', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload slow runner first (tracks[0] = slow leader, leaderEnd ≈ 240s), fast runner second (comp, compEnd ≈ 80s)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Evaluate the new comp-anchored formula in the post-compEnd region
+    const values = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leader = tracks[0];
+      const comp = tracks[1];
+      const leaderEnd = leader[leader.length - 1].time;
+      const compEnd = comp[comp.length - 1].time;
+
+      function gvap(track: any[], posField: string, pos: number, valField: string): number {
+        if (pos <= track[0][posField]) return track[0][valField];
+        if (pos >= track[track.length - 1][posField]) return track[track.length - 1][valField];
+        for (let i = 1; i < track.length; i++) {
+          if (track[i][posField] >= pos) {
+            const t0 = track[i - 1][posField], t1 = track[i][posField];
+            const v0 = track[i - 1][valField], v1 = track[i][valField];
+            return v0 + (pos - t0) / (t1 - t0) * (v1 - v0);
+          }
+        }
+        return track[track.length - 1][valField];
+      }
+
+      // New comp-anchored formula for the post-compEnd region
+      function timeBehindCompAnchored(t: number): number {
+        const d_leader = gvap(leader, 'time', t, 'displayDistance');
+        const tCompAtDLeader = gvap(comp, 'displayDistance', d_leader, 'time');
+        return tCompAtDLeader - t;
+      }
+
+      const atCompEnd = timeBehindCompAnchored(compEnd);
+      const atMid = timeBehindCompAnchored(compEnd + 0.5 * (leaderEnd - compEnd));
+      const atLeaderEnd = timeBehindCompAnchored(leaderEnd);
+
+      return { leaderEnd, compEnd, atCompEnd, atMid, atLeaderEnd };
+    });
+
+    // Comp finished first, so all values should be negative (comp is ahead)
+    expect(values.atCompEnd).toBeLessThan(0);
+    expect(values.atMid).toBeLessThan(0);
+    expect(values.atLeaderEnd).toBeLessThan(0);
+
+    // Magnitude grows monotonically toward leaderEnd
+    expect(Math.abs(values.atMid)).toBeGreaterThanOrEqual(Math.abs(values.atCompEnd));
+    expect(Math.abs(values.atLeaderEnd)).toBeGreaterThanOrEqual(Math.abs(values.atMid));
+
+    // At leaderEnd, value converges to compEnd - leaderEnd
+    const expectedFinalGap = values.compEnd - values.leaderEnd;
+    expect(values.atLeaderEnd).toBeCloseTo(expectedFinalGap, 0);
+  });
+
+  test('distance-behind converges to zero at slowest finish (fast-first)', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload fast runner first (tracks[0] = fast leader, leaderEnd ≈ 80s), slow runner second (comp, compEnd ≈ 240s)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Evaluate the leader-finished-first formula for the distance variant
+    const values = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leader = tracks[0];
+      const comp = tracks[1];
+      const leaderEnd = leader[leader.length - 1].time;
+      const compEnd = comp[comp.length - 1].time;
+      const courseEnd = Math.max(
+        leader[leader.length - 1].displayDistance,
+        comp[comp.length - 1].displayDistance
+      );
+
+      function gvap(track: any[], posField: string, pos: number, valField: string): number {
+        if (pos <= track[0][posField]) return track[0][valField];
+        if (pos >= track[track.length - 1][posField]) return track[track.length - 1][valField];
+        for (let i = 1; i < track.length; i++) {
+          if (track[i][posField] >= pos) {
+            const t0 = track[i - 1][posField], t1 = track[i][posField];
+            const v0 = track[i - 1][valField], v1 = track[i][valField];
+            return v0 + (pos - t0) / (t1 - t0) * (v1 - v0);
+          }
+        }
+        return track[track.length - 1][valField];
+      }
+
+      // Leader-finished-first formula: comp's remaining distance to finish (positive = comp behind)
+      function distBehindLeaderFirst(t: number): number {
+        const compDist = gvap(comp, 'time', t, 'displayDistance');
+        return courseEnd - compDist;
+      }
+
+      const mid = leaderEnd + 0.5 * (compEnd - leaderEnd);
+      const atLeaderEnd = distBehindLeaderFirst(leaderEnd);
+      const atMid = distBehindLeaderFirst(mid);
+      const atCompEnd = distBehindLeaderFirst(compEnd);
+
+      return { leaderEnd, compEnd, courseEnd, atLeaderEnd, atMid, atCompEnd };
+    });
+
+    // Leader finished first; comp still running → positive remaining distance
+    expect(values.atLeaderEnd).toBeGreaterThan(0);
+    expect(values.atMid).toBeGreaterThan(0);
+
+    // Converges to ~0 at comp's finish (within 10 meters)
+    expect(Math.abs(values.atCompEnd)).toBeLessThan(10);
+
+    // Remaining distance decreases monotonically toward comp's finish
+    expect(values.atLeaderEnd).toBeGreaterThanOrEqual(values.atMid);
+    expect(values.atMid).toBeGreaterThanOrEqual(values.atCompEnd);
+  });
+
+  test('distance-behind converges to zero at slowest finish (slow-first)', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload slow runner first (tracks[0] = slow leader, leaderEnd ≈ 240s), fast runner second (comp, compEnd ≈ 80s)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Evaluate the comp-finished-first formula for the distance variant
+    const values = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      const leader = tracks[0];
+      const comp = tracks[1];
+      const leaderEnd = leader[leader.length - 1].time;
+      const compEnd = comp[comp.length - 1].time;
+      const courseEnd = Math.max(
+        leader[leader.length - 1].displayDistance,
+        comp[comp.length - 1].displayDistance
+      );
+
+      function gvap(track: any[], posField: string, pos: number, valField: string): number {
+        if (pos <= track[0][posField]) return track[0][valField];
+        if (pos >= track[track.length - 1][posField]) return track[track.length - 1][valField];
+        for (let i = 1; i < track.length; i++) {
+          if (track[i][posField] >= pos) {
+            const t0 = track[i - 1][posField], t1 = track[i][posField];
+            const v0 = track[i - 1][valField], v1 = track[i][valField];
+            return v0 + (pos - t0) / (t1 - t0) * (v1 - v0);
+          }
+        }
+        return track[track.length - 1][valField];
+      }
+
+      // Comp-finished-first formula: leader's remaining distance to finish (negative = leader behind comp)
+      function distBehindCompFirst(t: number): number {
+        const leaderDist = gvap(leader, 'time', t, 'displayDistance');
+        return leaderDist - courseEnd;
+      }
+
+      const mid = compEnd + 0.5 * (leaderEnd - compEnd);
+      const atCompEnd = distBehindCompFirst(compEnd);
+      const atMid = distBehindCompFirst(mid);
+      const atLeaderEnd = distBehindCompFirst(leaderEnd);
+
+      return { leaderEnd, compEnd, courseEnd, atCompEnd, atMid, atLeaderEnd };
+    });
+
+    // Comp finished first; leader still running → negative (leader is behind)
+    expect(values.atCompEnd).toBeLessThan(0);
+    expect(values.atMid).toBeLessThan(0);
+
+    // Converges to ~0 at leader's finish (within 10 meters)
+    expect(Math.abs(values.atLeaderEnd)).toBeLessThan(10);
+
+    // Magnitude decreases monotonically toward leader's finish
+    expect(Math.abs(values.atCompEnd)).toBeGreaterThanOrEqual(Math.abs(values.atMid));
+    expect(Math.abs(values.atMid)).toBeGreaterThanOrEqual(Math.abs(values.atLeaderEnd));
+  });
+
   test('harmonized tracks have continuous displayDistance across segments', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
