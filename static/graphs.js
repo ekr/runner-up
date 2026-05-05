@@ -44,29 +44,51 @@ function drawDifferenceGraph(
 
   const leader = tracks[0];
   const leaderMaxDist = leader[leader.length - 1].displayDistance;
+  const leaderEnd = leader[leader.length - 1].time;
   const comparisonTracks = tracks.slice(1);
   const differences = [];
 
   for (let ci = 0; ci < comparisonTracks.length; ci++) {
     const comp = comparisonTracks[ci];
     const trackLabel = getTrackDisplayName(ci + 1);
+    const compEnd = comp[comp.length - 1].time;
+    const courseEnd = Math.max(leaderMaxDist, comp[comp.length - 1].displayDistance);
+    const compFinishedFirst = compEnd < leaderEnd;
+    const leaderFinishedFirst = leaderEnd < compEnd;
 
     for (let t = minTime; t <= maxTime; t += 1) {
       let diff;
       if (y_name === "time") {
-        // Follower-anchored: how long ago did the leader pass the comp's current position.
-        const d_comp = getValueAtPosition(comp, "time", t, "displayDistance");
-        if (d_comp == null || isNaN(d_comp)) continue;
-        if (d_comp > leaderMaxDist) continue;
-        const tLeaderAtDComp = getValueAtPosition(leader, "displayDistance", d_comp, "time");
-        if (tLeaderAtDComp == null || isNaN(tLeaderAtDComp)) continue;
-        diff = transform(t) - transform(tLeaderAtDComp);
+        if (compFinishedFirst && t > compEnd) {
+          // Comp finished first: anchor to comp's position, show when comp was at leader's current location.
+          const d_leader = getValueAtPosition(leader, "time", t, "displayDistance");
+          if (d_leader == null || isNaN(d_leader)) continue;
+          const tCompAtDLeader = getValueAtPosition(comp, "displayDistance", d_leader, "time");
+          if (tCompAtDLeader == null || isNaN(tCompAtDLeader)) continue;
+          diff = transform(tCompAtDLeader) - transform(t);
+        } else {
+          // Both running, or leader finished first: follower-anchored formula.
+          const d_comp = getValueAtPosition(comp, "time", t, "displayDistance");
+          if (d_comp == null || isNaN(d_comp)) continue;
+          const tLeaderAtDComp = getValueAtPosition(leader, "displayDistance", d_comp, "time");
+          if (tLeaderAtDComp == null || isNaN(tLeaderAtDComp)) continue;
+          diff = transform(t) - transform(tLeaderAtDComp);
+        }
       } else {
-        const x_value = x_name === "time" ? t : getValueAtPosition(leader, "time", t, x_name);
-        const baseline = getValueAtPosition(leader, "time", t, y_name);
-        const comparator = getValueAtPosition(comp, x_name, x_value, y_name);
-        if (baseline == null || comparator == null) continue;
-        diff = transform(comparator) - transform(baseline);
+        if (leaderFinishedFirst && t > leaderEnd) {
+          const compDist = getValueAtPosition(comp, "time", t, "displayDistance");
+          if (compDist == null || isNaN(compDist)) continue;
+          diff = transform(compDist) - transform(courseEnd);
+        } else if (compFinishedFirst && t > compEnd) {
+          const leaderDist = getValueAtPosition(leader, "time", t, "displayDistance");
+          if (leaderDist == null || isNaN(leaderDist)) continue;
+          diff = transform(courseEnd) - transform(leaderDist);
+        } else {
+          const baseline = getValueAtPosition(leader, "time", t, y_name);
+          const comparator = getValueAtPosition(comp, "time", t, y_name);
+          if (baseline == null || comparator == null) continue;
+          diff = transform(comparator) - transform(baseline);
+        }
       }
       differences.push({ time: t, diff, trackLabel });
     }
