@@ -43,6 +43,7 @@ function drawDifferenceGraph(
   }
 
   const leader = tracks[0];
+  if (leader.length < 2) return; // leader not in narrow window
   const leaderMaxDist = leader[leader.length - 1].displayDistance;
   const leaderEnd = leader[leader.length - 1].time;
   const comparisonTracks = tracks.slice(1);
@@ -222,6 +223,44 @@ function drawElevationGraph(currentTime) {
   });
 
   graphContainer.appendChild(chart);
+  attachElevationBrush(chart);
+}
+
+function attachElevationBrush(chart) {
+  if (typeof d3 === "undefined" || !d3.brushX) return;
+  const xScale = chart.scale("x");
+  const yScale = chart.scale("y");
+  if (!xScale || !yScale) return;
+
+  const [xPxLo, xPxHi] = xScale.range;
+  const [yPxA, yPxB] = yScale.range;
+  const yTop = Math.min(yPxA, yPxB);
+  const yBot = Math.max(yPxA, yPxB);
+  const [d0, d1] = xScale.domain;
+
+  const pixelToDisplayed = (px) => {
+    const ratio = (px - xPxLo) / (xPxHi - xPxLo);
+    return d0 + ratio * (d1 - d0);
+  };
+
+  const fromDisplayed = Units().distanceFromDisplayed;
+
+  const brush = d3.brushX()
+    .extent([[xPxLo, yTop], [xPxHi, yBot]])
+    .on("end", (event) => {
+      if (!event.sourceEvent) return;
+      if (!event.selection) return;
+      const [pxA, pxB] = event.selection;
+      const dispA = pixelToDisplayed(pxA);
+      const dispB = pixelToDisplayed(pxB);
+      const fullSpan = Math.abs(d1 - d0);
+      const span = Math.abs(dispB - dispA);
+      if (fullSpan === 0 || span / fullSpan < 0.01) return; // stray click
+      if (span / fullSpan > 0.99) return;                   // select-all
+      narrowToWindow(fromDisplayed(dispA), fromDisplayed(dispB));
+    });
+
+  d3.select(chart).append("g").attr("class", "elevation-brush").call(brush);
 }
 
 function addGraphTypeListener() {

@@ -48,6 +48,14 @@ function loadAvatarIfNeeded(username) {
 // Using var so it's accessible via window.tracks for testing.
 var tracks = [];
 
+// Pre-narrow copy of tracks; used by the brush to know the full domain and by Widen.
+// Using var so it's accessible via window.fullTracks for testing.
+var fullTracks = [];
+
+// Active narrow window { d1, d2 } in raw displayDistance units (meters), or null.
+// Using var so it's accessible via window.narrowWindow for testing.
+var narrowWindow = null;
+
 // The individual matching segments for each track.
 let segments = null;
 
@@ -187,6 +195,9 @@ function dataUpdated() {
   document.querySelector("#add-track").style.display =
     data.length >= MAX_TRACKS ? "none" : "block";
 
+  // Track set changed — any active narrow window no longer applies.
+  narrowWindow = null;
+
   try {
     displayTracks();
   } catch (e) {
@@ -248,6 +259,10 @@ function computeInfoboxTracks() {
 }
 
 function displayTracks() {
+  // Reset time bounds — recomputed below from whichever tracks are active.
+  minTime = Infinity;
+  maxTime = -Infinity;
+
   tracks = structuredClone(data);
 
   if (!segments) {
@@ -278,7 +293,22 @@ function displayTracks() {
     });
   });
 
+  // Save full tracks before any narrowing so the brush knows the domain and
+  // the Widen button can restore them.
+  fullTracks = tracks;
+
+  if (narrowWindow) {
+    tracks = applyNarrow(fullTracks, narrowWindow);
+    // Defensive: if no track has ≥2 points in the window, widen automatically.
+    if (tracks.every(t => t.length < 2)) {
+      console.warn("Narrow window produced no displayable tracks — widening.");
+      narrowWindow = null;
+      tracks = fullTracks;
+    }
+  }
+
   infoboxTracks = computeInfoboxTracks();
+  updateNarrowBanner();
 
   // Clean up
   lmap.clear();
@@ -286,18 +316,57 @@ function displayTracks() {
 
   for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i];
+    if (track.length < 2) continue; // skip tracks with no points in the narrow window
 
     minTime = Math.min(track[0].time, minTime);
     maxTime = Math.max(track[track.length - 1].time, maxTime);
 
     lmap.drawTrack(track, i);
   }
+
+  // If no tracks were drawable (shouldn't happen after the check above), bail.
+  if (minTime === Infinity) {
+    minTime = 0;
+    maxTime = 1;
+  }
+
   const displayNames = data.map((_, i) => getTrackDisplayName(i));
   const dateStrings = data.map((_, i) => getStartDate(data[i]));
   const effectiveSharedBy = shouldShowAvatars() ? dataToSharedBy : dataToSharedBy.map(() => null);
   lmap.createLegend(tracks, dataToStorageId, displayNames, dateStrings, dataToIsShared, dataToLabel, effectiveSharedBy);
   initializeSlider();
   updateMarkers();
+}
+
+function applyNarrow(fullTracks, win) {
+  return fullTracks.map(t =>
+    t.filter(p => p.displayDistance >= win.d1 && p.displayDistance <= win.d2)
+  );
+}
+
+function narrowToWindow(d1, d2) {
+  narrowWindow = { d1: Math.min(d1, d2), d2: Math.max(d1, d2) };
+  displayTracks();
+}
+
+function widen() {
+  narrowWindow = null;
+  displayTracks();
+}
+
+function updateNarrowBanner() {
+  const banner = document.getElementById("narrow-banner");
+  const rangeEl = document.getElementById("narrow-range");
+  if (!banner) return;
+  if (!narrowWindow) {
+    banner.style.display = "none";
+    return;
+  }
+  const u = Units();
+  const lo = u.distanceValue(narrowWindow.d1).toFixed(1);
+  const hi = u.distanceValue(narrowWindow.d2).toFixed(1);
+  rangeEl.textContent = `${lo}–${hi} ${u.distanceUnits()}`;
+  banner.style.display = "flex";
 }
 
 // Rebuild just the legend (e.g., after an avatar finishes loading).
@@ -417,6 +486,7 @@ function updateMarkers() {
   lmap.clearMarkers();
   for (let i in tracks) {
     let track = tracks[i];
+    if (track.length < 2) continue; // skip tracks not in the current narrow window
     const position = getPositionAtTime(track, currentTime);
     if (position) {
       const username = shouldShowAvatars() ? (dataToSharedBy[i] || null) : null;
@@ -788,6 +858,8 @@ document.addEventListener("DOMContentLoaded", () => {
   addGraphTypeListener();
   addDisplayModeListener();
 
+  document.getElementById("widen-btn").addEventListener("click", widen);
+
   // Listen for hash changes (e.g., user pastes a URL with track IDs).
   window.addEventListener("hashchange", () => {
     const newHash = window.location.hash;
@@ -813,6 +885,7 @@ function addDisplayModeListener() {
     modeSelect.addEventListener("change", (e) => {
       displayMode = e.target.value;
       localStorage.setItem('runnerup:displayMode', displayMode);
+      narrowWindow = null; // mode switch always widens
       displayTracks();
     });
   }
@@ -830,6 +903,7 @@ function updateUrlHash() {
 
 // Load tracks from the URL hash (e.g., #trackId1/trackId2/trackId3).
 async function loadTracksFromHash(hash) {
+  narrowWindow = null; // navigating to a new hash always starts widened
   let parts = hash.slice(1).split('/').filter(Boolean);
   if (parts.length === 0) return;
   if (parts.length > MAX_TRACKS) {

@@ -163,7 +163,7 @@ function LeafletMap() {
       clone.querySelector(".delete-button").addEventListener("click", (e) => {
         if (e.shiftKey) {
           // Shift+click: permanently delete from localStorage
-          const trackDate = getStartDate(track);
+          const trackDate = dateStrings ? dateStrings[i] : getStartDate(track);
           if (confirm(`Permanently delete track from ${trackDate} from saved tracks?`)) {
             removeTrack(trackId, true);
           }
@@ -183,7 +183,7 @@ function LeafletMap() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          const dateStr = getStartDate(track).replace(/[/:]/g, "-").replace(/\s+/g, "_");
+          const dateStr = (dateStrings ? dateStrings[i] : getStartDate(track)).replace(/[/:]/g, "-").replace(/\s+/g, "_");
           a.download = `${dateStr}.gpx`;
           a.click();
           URL.revokeObjectURL(url);
