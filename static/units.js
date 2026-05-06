@@ -27,6 +27,11 @@ function Units() {
     return metric() ? "m" : "ft";
   }
 
+  // Inverse of distanceValue: converts displayed km/mi back to raw meters.
+  function distanceFromDisplayed(v) {
+    return metric() ? v * 1000 : (v * 1000) / 0.62;
+  }
+
   return {
     distanceValue,
     distanceUnits,
@@ -34,5 +39,6 @@ function Units() {
     elevationUnits,
     distanceDiffValue,
     distanceDiffUnits,
+    distanceFromDisplayed,
   };
 }

@@ -47,6 +47,12 @@ All overlay elements are styled as cards with white backgrounds and subtle shado
 - **Horizontal** (`.infobox-row`): used for the "Elapsed" row, where label and value are short and fixed.
 - **Stacked** (`.infobox-stacked-row`): used for per-track rows (leader, behind, fallback). The track-colored label takes its own line; the metric value appears below it. This prevents the `+0:00 · -0.00 mi` value from wrapping mid-unit.
 
+## Narrow Window
+
+A brush affordance on the elevation graph lets the user narrow the view to a selected distance range. The active window is stored in `narrowWindow: { d1, d2 }` (raw `displayDistance` meters) in `script.js`. When non-null, `displayTracks()` applies `applyNarrow()` to produce a sliced `tracks` array from `fullTracks`, then re-renders the map, graphs, slider, and infobox using only the window's data. A banner above the map shows the formatted range and a "Widen" button that clears `narrowWindow`. Narrowing is reset when the track set changes (`dataUpdated`), display mode switches, or the URL hash changes. The window is ephemeral — it is not persisted across reloads.
+
+The brush (`d3.brushX`) is attached to the elevation graph SVG after each `Plot.plot()` call via `attachElevationBrush()` in `graphs.js`. Plot's `chart.scale("x")` provides the pixel↔domain mapping; `Units().distanceFromDisplayed()` converts the selected displayed units (km/mi) back to raw meters for storage in `narrowWindow`.
+
 ## Track Distance Fields
 
 Each processed track point has:
