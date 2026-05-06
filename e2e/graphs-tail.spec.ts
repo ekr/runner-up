@@ -185,6 +185,13 @@ test.describe('Time-behind tail: no spike at graph end', () => {
   // the leader (slow), the pre-#81 formula left an isolated terminal point
   // that caused a spike to ±250-360 s at t=maxTime.  The SVG tailRatio
   // assertion directly verifies the rendered path has no such cliff.
+  //
+  // Note: because the slow track is derived from track1.gpx by timestamp
+  // stretching only (lat/lon are identical), normalizeTracks assigns both
+  // tracks the same displayDistance at every index. d_comp therefore never
+  // exceeds leaderMaxDist, so the Math.min clamp in graphs.js is not
+  // exercised here. What IS exercised is the compFinishedFirst two-branch
+  // formula (lines 62-68 of graphs.js) that replaced the old guard.
   test('slow-first: final diff matches known gap, no cliff in SVG tail', async ({ page }) => {
     const fastGPX = fs.readFileSync(path.join(fixturesDir, 'track1.gpx'), 'utf-8');
     const { slowGPX, tailGapSeconds: gap } = makeSlowGPX(fastGPX);

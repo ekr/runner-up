@@ -70,11 +70,12 @@ function drawDifferenceGraph(
           // Both running, or leader finished first: follower-anchored formula.
           const d_comp = getValueAtPosition(comp, "time", t, "displayDistance");
           if (d_comp == null || isNaN(d_comp)) continue;
-          // Clamp to leaderMaxDist: floating-point differences in normalised
-          // distances can push d_comp slightly past the leader's track end.
-          // Without the clamp the old guard (d_comp > leaderMaxDist → skip)
-          // would drop all post-compEnd samples and leave Plot to interpolate
-          // across the gap, producing the sharp spike this branch replaces.
+          // Defensive clamp: getValueAtPosition already returns the endpoint
+          // value when the position exceeds the track's maximum, so this
+          // Math.min is functionally redundant for well-normalised tracks.
+          // It guards against a future relaxation of that clamping behaviour
+          // and makes the intent explicit — d_comp must never exceed the
+          // leader's distance range in the follower-anchored formula.
           const tLeaderAtDComp = getValueAtPosition(
             leader, "displayDistance", Math.min(d_comp, leaderMaxDist), "time"
           );
