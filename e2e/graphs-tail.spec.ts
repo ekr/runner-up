@@ -9,10 +9,13 @@ const fixturesDir = path.join(__dirname, 'fixtures');
 
 /**
  * Derive a slowed-down GPX from gpxText by stretching the first 1/3 of
- * timestamps by factor 1.5. Returns the modified GPX and the resulting
- * constant time gap in seconds.
+ * timestamps by factor 1.5.  Returns the modified GPX and the steady-state
+ * gap in seconds — the constant time offset between the two tracks that
+ * holds for all positions AFTER the slowdown window ends.  Within the
+ * window the gap grows from 0 to tailGapSeconds; it is NOT constant
+ * throughout the entire track.
  */
-function makeSlowGPX(gpxText: string): { slowGPX: string; expectedGapSeconds: number } {
+function makeSlowGPX(gpxText: string): { slowGPX: string; tailGapSeconds: number } {
   const timePattern = /<time>([^<]+)<\/time>/g;
   const entries: Array<{ full: string; epochMs: number }> = [];
   let m: RegExpExecArray | null;
@@ -23,14 +26,15 @@ function makeSlowGPX(gpxText: string): { slowGPX: string; expectedGapSeconds: nu
   const startMs = entries[0].epochMs;
   const relSeconds = entries.map(e => (e.epochMs - startMs) / 1000);
   const n = relSeconds.length;
+  if (n < 3) throw new Error('makeSlowGPX requires at least 3 track points');
   // Slow down the first 1/3 of points by factor k=1.5.
   const windowEndIdx = Math.floor(n / 3);          // exclusive upper bound
   const windowDuration = relSeconds[windowEndIdx - 1]; // last point inside window
   const k = 1.5;
-  const offset = (k - 1) * windowDuration;           // constant gap added to rest
+  const tailGapSeconds = (k - 1) * windowDuration; // offset applied to all points after the window
 
   const newRelSeconds = relSeconds.map((t, i) =>
-    i < windowEndIdx ? t * k : t + offset
+    i < windowEndIdx ? t * k : t + tailGapSeconds
   );
 
   let result = gpxText;
@@ -41,7 +45,7 @@ function makeSlowGPX(gpxText: string): { slowGPX: string; expectedGapSeconds: nu
     result = result.replace(entries[i].full, `<time>${newISO}</time>`);
   }
 
-  return { slowGPX: result, expectedGapSeconds: offset };
+  return { slowGPX: result, tailGapSeconds };
 }
 
 /**
@@ -49,6 +53,7 @@ function makeSlowGPX(gpxText: string): { slowGPX: string; expectedGapSeconds: nu
  * two-branch formula as drawDifferenceGraph in graphs.js:
  *   - t > compEnd (comp finished first): tCompAtDLeader - t
  *   - otherwise: t - tLeaderAtDComp
+ * gvap() clamps at track endpoints, so no explicit out-of-range guard is needed.
  */
 function diffSeriesScript() {
   const tracks = (window as any).tracks;
@@ -82,8 +87,8 @@ function diffSeriesScript() {
       const tCompAtD = gvap(comp, 'displayDistance', dLeader, 'time');
       diff = tCompAtD - t;
     } else {
+      // Both running, or leader finished first.
       const dComp = gvap(comp, 'time', t, 'displayDistance');
-      if (dComp > leaderMaxDist) continue;
       const tLeader = gvap(leader, 'displayDistance', dComp, 'time');
       diff = t - tLeader;
     }
@@ -93,9 +98,14 @@ function diffSeriesScript() {
 }
 
 /**
- * Parse the diff SVG path's L-command y-values and return the ratio of
- * the tail's y-range to the total y-range.  A value near zero means the
- * tail is flat (no spike); a large value (> 0.2) indicates a cliff.
+ * Parse the diff SVG path's L-command y-values and return the ratio of the
+ * tail y-range to the total path y-range.
+ *
+ * Before the PR-81 fix, a spike at t=maxTime caused the tail to jump from
+ * its steady-state value to an extreme outlier, giving a ratio near 1.0.
+ * After the fix, the tail is smooth and the ratio is near 0.  A threshold
+ * of 0.2 leaves generous headroom for normal interpolation variation while
+ * reliably catching the pre-fix cliff (which was typically > 0.8).
  */
 function tailFlatnessScript() {
   const svgs = document.querySelectorAll('#graph svg');
@@ -118,7 +128,7 @@ function tailFlatnessScript() {
   const yMin = Math.min(...ys);
   const yMax = Math.max(...ys);
   const yRange = yMax - yMin;
-  if (yRange < 1) return 0; // all values the same → flat line
+  if (yRange < 1) return 0; // all values the same → flat line, trivially passes
 
   const tail = ys.slice(-20);
   return (Math.max(...tail) - Math.min(...tail)) / yRange;
@@ -132,9 +142,12 @@ test.describe('Time-behind tail: no spike at graph end', () => {
     await page.reload();
   });
 
-  test('fast-first: tail stays flat at known gap', async ({ page }) => {
+  // Sanity check for the normal (comp finishes after leader) upload order.
+  // The cliff bug did not manifest here, but the assertions confirm the
+  // formula and SVG render remain correct after any future refactor.
+  test('fast-first: final diff matches known gap, no cliff in SVG tail', async ({ page }) => {
     const fastGPX = fs.readFileSync(path.join(fixturesDir, 'track1.gpx'), 'utf-8');
-    const { slowGPX, expectedGapSeconds: gap } = makeSlowGPX(fastGPX);
+    const { slowGPX, tailGapSeconds: gap } = makeSlowGPX(fastGPX);
 
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles({
@@ -159,9 +172,8 @@ test.describe('Time-behind tail: no spike at graph end', () => {
     const last = diffs[diffs.length - 1];
     const prev = diffs[diffs.length - 2];
 
-    // comp (slow) is behind leader (fast), so diff at tail ≈ +gap
+    // comp (slow) finishes after leader (fast) → diff at tail ≈ +gap
     expect(Math.abs(last - gap)).toBeLessThan(5);
-    // No cliff between the last two samples
     expect(Math.abs(last - prev)).toBeLessThan(5);
 
     const tailRatio = await page.evaluate(tailFlatnessScript);
@@ -169,9 +181,13 @@ test.describe('Time-behind tail: no spike at graph end', () => {
     expect(tailRatio!).toBeLessThan(0.2);
   });
 
-  test('slow-first: tail stays flat at known gap', async ({ page }) => {
+  // Regression test for the cliff bug: when the comp (fast) finishes before
+  // the leader (slow), the pre-#81 formula left an isolated terminal point
+  // that caused a spike to ±250-360 s at t=maxTime.  The SVG tailRatio
+  // assertion directly verifies the rendered path has no such cliff.
+  test('slow-first: final diff matches known gap, no cliff in SVG tail', async ({ page }) => {
     const fastGPX = fs.readFileSync(path.join(fixturesDir, 'track1.gpx'), 'utf-8');
-    const { slowGPX, expectedGapSeconds: gap } = makeSlowGPX(fastGPX);
+    const { slowGPX, tailGapSeconds: gap } = makeSlowGPX(fastGPX);
 
     const fileInput = page.locator(selectors.fileInput);
     await fileInput.setInputFiles({
@@ -196,12 +212,12 @@ test.describe('Time-behind tail: no spike at graph end', () => {
     const last = diffs[diffs.length - 1];
     const prev = diffs[diffs.length - 2];
 
-    // comp (fast) is ahead of leader (slow), so diff at tail ≈ -gap
+    // comp (fast) finishes before leader (slow) → diff at tail ≈ -gap
     expect(Math.abs(last - (-gap))).toBeLessThan(5);
-    // No cliff between the last two samples
     expect(Math.abs(last - prev)).toBeLessThan(5);
 
-    // SVG tail flatness — this is what catches the graphs.js cliff
+    // SVG-level assertion: the rendered tail must not spike.
+    // Before the fix the ratio was near 1.0; after, near 0.
     const tailRatio = await page.evaluate(tailFlatnessScript);
     expect(tailRatio).not.toBeNull();
     expect(tailRatio!).toBeLessThan(0.2);
