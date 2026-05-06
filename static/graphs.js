@@ -71,7 +71,15 @@ function drawDifferenceGraph(
           // Both running, or leader finished first: follower-anchored formula.
           const d_comp = getValueAtPosition(comp, "time", t, "displayDistance");
           if (d_comp == null || isNaN(d_comp)) continue;
-          const tLeaderAtDComp = getValueAtPosition(leader, "displayDistance", d_comp, "time");
+          // Defensive clamp: getValueAtPosition already returns the endpoint
+          // value when the position exceeds the track's maximum, so this
+          // Math.min is functionally redundant for well-normalised tracks.
+          // It guards against a future relaxation of that clamping behaviour
+          // and makes the intent explicit — d_comp must never exceed the
+          // leader's distance range in the follower-anchored formula.
+          const tLeaderAtDComp = getValueAtPosition(
+            leader, "displayDistance", Math.min(d_comp, leaderMaxDist), "time"
+          );
           if (tLeaderAtDComp == null || isNaN(tLeaderAtDComp)) continue;
           diff = transform(t) - transform(tLeaderAtDComp);
         }
