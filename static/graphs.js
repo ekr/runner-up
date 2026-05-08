@@ -56,8 +56,9 @@ function drawDifferenceGraph(
     const courseEnd = Math.max(leaderMaxDist, comp[comp.length - 1].displayDistance);
     const compFinishedFirst = compEnd < leaderEnd;
     const leaderFinishedFirst = leaderEnd < compEnd;
+    const localEnd = Math.max(leaderEnd, compEnd);
 
-    for (let t = minTime; t <= maxTime; t += 1) {
+    for (let t = minTime; t <= localEnd; t += 1) {
       let diff;
       if (y_name === "time") {
         if (compFinishedFirst && t > compEnd) {

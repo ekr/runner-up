@@ -706,3 +706,74 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(endDistDiff / avgEndDist).toBeLessThan(0.05);
   });
 });
+
+test.describe('Difference graph: N≥3 tracks with unequal durations', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearLocalStorageNow(page);
+    await setupApiMock(page);
+    await page.reload();
+  });
+
+  // Regression test for the spike/extrapolation bug when one comparison track
+  // extends maxTime beyond another comparison track's natural endpoint.
+  // Leader = fast (~80s), comp1 = fast-copy (~80s), comp2 = slow (~240s).
+  // maxTime = 240s (from comp2). Without the fix, comp1 iterates to 240s and
+  // produces a spurious extrapolated tail. With the fix, comp1's loop stops at
+  // max(leaderEnd=80, comp1End=80) = 80s.
+  test('difference graph: comp line stops at its natural end when another track extends maxTime', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Leader: fast (~80s)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    // Comp1: identical course, same duration (~80s)
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast-copy.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    // Comp2: identical course, longer duration (~240s) — this sets maxTime = 240s
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(3, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Elevation + difference graphs should both be present
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    // Verify the two comp line paths have very different lengths.
+    // comp1 (same duration as leader, localEnd≈80s) should have ~80 L-commands.
+    // comp2 (longer, localEnd≈240s) should have ~240 L-commands.
+    // Without the fix both paths would have ~240 L-commands.
+    const pathLengths = await page.evaluate(() => {
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      const lCounts: number[] = [];
+      diffSvg.querySelectorAll('path').forEach((p) => {
+        const d = p.getAttribute('d') || '';
+        const lCount = (d.split('L').length - 1);
+        if (lCount > 5) lCounts.push(lCount);  // skip tiny decorative paths
+      });
+      return lCounts.sort((a, b) => a - b);
+    });
+
+    // Must have exactly 2 data paths (one per comp track)
+    expect(pathLengths.length).toBe(2);
+
+    const [shortPath, longPath] = pathLengths;
+
+    // The short comp (comp1, same duration as leader ~80s) should end well
+    // before the long comp (comp2, ~240s). Require the long path to have at
+    // least 2× as many segments as the short path.
+    expect(longPath).toBeGreaterThan(shortPath * 2);
+
+    // The short path must not extend past comp1's natural endpoint.
+    // comp1 ends at ~80s, so we allow up to 100 L-commands (80 + tolerance).
+    expect(shortPath).toBeLessThan(100);
+
+    // The long path should reach close to comp2's endpoint (~240s).
+    expect(longPath).toBeGreaterThan(200);
+  });
+});
