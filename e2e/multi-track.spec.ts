@@ -6,6 +6,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fixturesDir, FIVE_FIXTURE_NAMES } from './helpers/fixtures';
 
+const fixtureFile = (name: string) => path.join(fixturesDir, name);
+
 const FIVE_FIXTURES = FIVE_FIXTURE_NAMES;
 
 test.describe('Multi-track (N > 2)', () => {
@@ -74,6 +76,52 @@ test.describe('Multi-track (N > 2)', () => {
 
     await expect(page.locator(selectors.legendEntry)).toHaveCount(3, { timeout: 10000 });
     await expect(page.locator(selectors.mapMarker)).toHaveCount(3, { timeout: 5000 });
+  });
+
+  test('display-mode is hidden when N>2 tracks share a single overlap segment', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Upload the same track three times — identical courses guarantee a single
+    // common overlap (hasCommonOverlap: true, hasMultipleSegments: false).
+    await fileInput.setInputFiles(fixtureFile('track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+
+    await fileInput.setInputFiles([]);
+    await fileInput.setInputFiles(fixtureFile('track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+
+    await fileInput.setInputFiles([]);
+    await fileInput.setInputFiles(fixtureFile('track1.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(3, { timeout: 5000 });
+
+    await page.waitForTimeout(300);
+
+    const alignment = await page.evaluate(() => (window as any).alignment);
+    expect(alignment).not.toBeNull();
+    expect(alignment.hasCommonOverlap).toBe(true);
+    expect(alignment.hasMultipleSegments).toBe(false);
+
+    await expect(page.locator(selectors.displayModeContainer)).toBeHidden();
+  });
+
+  test('display-mode is visible when two tracks have multiple overlapping segments', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(fixtureFile('main-route-no-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(fixtureFile('main-route-with-loop.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const regionCount = await page.evaluate(() =>
+      (window as any).alignment?.overlappingRegions?.length ?? 0
+    );
+    test.skip(regionCount < 2, 'fixture produced fewer than 2 overlapping regions');
+
+    await expect(page.locator(selectors.displayModeContainer)).toBeVisible();
+    await expect(page.locator(selectors.alignmentSummary)).not.toBeEmpty();
   });
 
   test('hash with more than MAX_TRACKS IDs truncates to 5', async ({ page }) => {

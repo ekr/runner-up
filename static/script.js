@@ -176,17 +176,8 @@ function dataUpdated() {
         summary.textContent = getAlignmentSummary(alignment);
       }
     }
-  } else if (alignment.hasCommonOverlap) {
-    // N > 2 tracks with a single common overlap — show mode toggle.
-    console.log("Common overlap found for N tracks");
-    if (display_mode) {
-      display_mode.style.display = "block";
-      const summary = document.querySelector("#alignment-summary");
-      if (summary) {
-        summary.textContent = getAlignmentSummary(alignment);
-      }
-    }
   } else {
+    // Single segment (N=2 perfect overlap or N>2 common overlap) — toggle not meaningful.
     console.log("All segments match");
     if (display_mode) display_mode.style.display = "none";
   }
