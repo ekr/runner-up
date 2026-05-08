@@ -240,14 +240,12 @@ test.describe('Leader Infobox', () => {
     const fileInput = page.locator(selectors.fileInput);
     const fixtures = [
       'track1.gpx', 'track2.gpx', 'sample-track.gpx',
-      'hairpin-fast.gpx', 'main-route-with-loop.gpx', 'main-route-no-loop.gpx',
+      'hairpin-fast.gpx', 'main-route-with-loop.gpx',
     ];
 
-    for (const fixture of fixtures) {
-      await fileInput.setInputFiles(path.join(fixturesDir, fixture));
-      await expect(page.locator(selectors.legendEntry)).toHaveCount(
-        fixtures.indexOf(fixture) + 1, { timeout: 5000 }
-      );
+    for (let i = 0; i < fixtures.length; i++) {
+      await fileInput.setInputFiles(path.join(fixturesDir, fixtures[i]));
+      await expect(page.locator(selectors.legendEntry)).toHaveCount(i + 1, { timeout: 5000 });
     }
 
     const result = await page.evaluate(() => {

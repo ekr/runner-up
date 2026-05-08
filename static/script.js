@@ -373,6 +373,7 @@ function refreshLegend() {
 // to server storage when logged in. Throws if the GPX is unparseable.
 async function addTrackFromGPXText(gpxText) {
   const track = parseGPX(gpxText);
+  if (track.length === 0) throw new Error("GPX contains no track points");
   data.push(track);
   if (isLoggedIn()) {
     const storageId = await saveGPXToStorage(gpxText);
@@ -389,21 +390,47 @@ async function addTrackFromGPXText(gpxText) {
   }
 }
 
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+    reader.readAsText(file);
+  });
+}
+
 // Listen for new files to be added.
 function addFileListener(name) {
   const fileInput = document.getElementById(name);
+  const errorEl = document.getElementById("track-file-error");
   fileInput.style.opacity = 0;
-  fileInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
+  fileInput.addEventListener("change", async (e) => {
+    errorEl.textContent = "";
+    const allFiles = Array.from(e.target.files);
+    if (allFiles.length === 0) return;
 
-    if (file) {
-      const reader = new FileReader();
-      console.log(file);
-      reader.onload = async (e) => {
-        await addTrackFromGPXText(e.target.result);
-      };
-      reader.readAsText(file);
+    const remaining = MAX_TRACKS - data.length;
+    const files = allFiles.slice(0, remaining);
+    const messages = [];
+
+    if (allFiles.length > remaining) {
+      messages.push(`Loaded ${remaining} of ${allFiles.length} files; track limit is ${MAX_TRACKS}.`);
     }
+
+    for (const file of files) {
+      try {
+        const text = await readFileAsText(file);
+        await addTrackFromGPXText(text);
+      } catch (err) {
+        console.error(`Failed to load ${file.name}:`, err);
+        messages.push(`Failed to parse: ${file.name}`);
+      }
+    }
+
+    if (messages.length > 0) {
+      errorEl.textContent = messages.join(" ");
+    }
+    fileInput.value = "";
   });
 }
 
