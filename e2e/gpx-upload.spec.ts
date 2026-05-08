@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { selectors } from './helpers/selectors';
 import { clearLocalStorageNow } from './helpers/localStorage';
 import { setupApiMock } from './helpers/apiMock';
+import { fixturesDir, FIVE_FIXTURE_NAMES } from './helpers/fixtures';
 import * as path from 'path';
 
 test.describe('GPX Upload', () => {
@@ -34,5 +35,57 @@ test.describe('GPX Upload', () => {
     await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
     await expect(page.locator(selectors.legendContainer)).toContainText('Jan 15, 2024');
     await expect(page.locator(selectors.mapMarker)).toHaveCount(1);
+  });
+
+  test('selects multiple files at once', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles([
+      path.join(fixturesDir, 'track1.gpx'),
+      path.join(fixturesDir, 'track2.gpx'),
+    ]);
+
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 5000 });
+  });
+
+  test('truncates to MAX_TRACKS and shows overflow warning', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Pre-load 4 tracks to leave only 1 slot.
+    for (const name of FIVE_FIXTURE_NAMES.slice(0, 4)) {
+      await fileInput.setInputFiles(path.join(fixturesDir, name));
+      await expect(page.locator(selectors.legendEntry)).toHaveCount(
+        FIVE_FIXTURE_NAMES.indexOf(name) + 1,
+        { timeout: 5000 }
+      );
+    }
+
+    // Now select 3 files — only 1 should load.
+    await fileInput.setInputFiles([
+      path.join(fixturesDir, 'track1.gpx'),
+      path.join(fixturesDir, 'track2.gpx'),
+      path.join(fixturesDir, 'out-and-back-short.gpx'),
+    ]);
+
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(5, { timeout: 5000 });
+    await expect(page.locator('#track-file-error')).toContainText('track limit is 5');
+  });
+
+  test('loads valid file and reports error for invalid file in same batch', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles([
+      path.join(fixturesDir, 'track1.gpx'),
+      path.join(fixturesDir, 'broken.gpx'),
+    ]);
+
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('#track-file-error')).toContainText('Failed to parse: broken.gpx');
+    expect(errors.some((e) => e.includes('broken.gpx'))).toBe(true);
   });
 });
