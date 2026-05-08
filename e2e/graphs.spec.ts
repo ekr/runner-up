@@ -45,6 +45,47 @@ test.describe('Graphs', () => {
   });
 });
 
+test.describe('difference graph line colors', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearLocalStorageNow(page);
+    await setupApiMock(page);
+    await page.reload();
+  });
+
+  test('difference graph lines match track colors', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await page.waitForTimeout(500);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    // Select "Time Behind" graph
+    await page.selectOption('#compare-by-menu', 'time');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    // The diff graph is the second SVG. Find paths with stroke="blue" (getColor(1)).
+    const strokeColors = await page.evaluate(() => {
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      return Array.from(diffSvg.querySelectorAll('path'))
+        .map((p) => p.getAttribute('stroke'))
+        .filter((s) => s !== null);
+    });
+
+    expect(strokeColors).toContain('blue');
+    expect(strokeColors).not.toContain('red'); // red is the leader, never plotted as a diff line
+  });
+});
+
 test.describe('displayTime in non-overlapping segments', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

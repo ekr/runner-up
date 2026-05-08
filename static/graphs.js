@@ -99,7 +99,7 @@ function drawDifferenceGraph(
           diff = transform(comparator) - transform(baseline);
         }
       }
-      differences.push({ time: t, diff, trackLabel });
+      differences.push({ time: t, diff, trackIndex: ci + 1, trackLabel });
     }
   }
 
@@ -111,7 +111,7 @@ function drawDifferenceGraph(
       Plot.line(differences, {
         x: "time",
         y: "diff",
-        stroke: (d) => d.trackLabel,
+        stroke: (d) => getColor(d.trackIndex),
       }),
       Plot.ruleX([currentTime], { stroke: "red" }),
     ],
