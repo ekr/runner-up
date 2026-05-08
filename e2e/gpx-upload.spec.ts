@@ -51,14 +51,11 @@ test.describe('GPX Upload', () => {
   test('truncates to MAX_TRACKS and shows overflow warning', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
-    // Pre-load 4 tracks to leave only 1 slot.
-    for (const name of FIVE_FIXTURE_NAMES.slice(0, 4)) {
-      await fileInput.setInputFiles(path.join(fixturesDir, name));
-      await expect(page.locator(selectors.legendEntry)).toHaveCount(
-        FIVE_FIXTURE_NAMES.indexOf(name) + 1,
-        { timeout: 5000 }
-      );
-    }
+    // Pre-load 4 tracks in one shot, leaving only 1 slot remaining.
+    await fileInput.setInputFiles(FIVE_FIXTURE_NAMES.slice(0, 4).map(
+      (n) => path.join(fixturesDir, n)
+    ));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(4, { timeout: 10000 });
 
     // Now select 3 files — only 1 should load.
     await fileInput.setInputFiles([
