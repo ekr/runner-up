@@ -626,6 +626,53 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(values.atMid).toBeGreaterThanOrEqual(values.atCompEnd);
   });
 
+  test('difference graph: comp line stops at its natural end when another track extends maxTime', async ({ page }) => {
+    const fileInput = page.locator(selectors.fileInput);
+
+    // Load 3 hairpin tracks: fast (80s) = leader, medium (160s) = comp1 (blue), slow (240s) = comp2 (green).
+    // global maxTime = 240; without the fix comp1's loop would also run to 240.
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-fast.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(1, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-medium.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
+
+    await fileInput.setInputFiles(path.join(fixturesDir, 'hairpin-slow.gpx'));
+    await expect(page.locator(selectors.legendEntry)).toHaveCount(3, { timeout: 10000 });
+
+    await page.waitForTimeout(1000);
+
+    const allMatch = await page.evaluate(() => (window as any).all_match);
+    expect(allMatch).toBe(true);
+
+    await page.selectOption('#compare-by-menu', 'time');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#graph svg')).toHaveCount(2, { timeout: 5000 });
+
+    // Count L-commands per colored path in the diff SVG.
+    // With the fix: blue (comp1, 160s) loop ends at max(80,160)=160, green (comp2, 240s) at max(80,240)=240.
+    // Without the fix: both loops would run to global maxTime=240, giving equal counts.
+    const counts = await page.evaluate(() => {
+      const diffSvg = document.querySelectorAll('#graph svg')[1];
+      const paths = Array.from(diffSvg.querySelectorAll('path'));
+      let blueLCount = 0;
+      let greenLCount = 0;
+      for (const p of paths) {
+        const stroke = p.getAttribute('stroke');
+        const lCount = (p.getAttribute('d') || '').split('L').length - 1;
+        if (stroke === 'blue') blueLCount = Math.max(blueLCount, lCount);
+        if (stroke === 'green') greenLCount = Math.max(greenLCount, lCount);
+      }
+      return { blueLCount, greenLCount };
+    });
+
+    // comp1 (blue, 160s) must have data points
+    expect(counts.blueLCount).toBeGreaterThan(50);
+    // comp2 (green, 240s) must have significantly more — reflecting the longer loop range
+    expect(counts.greenLCount).toBeGreaterThan(counts.blueLCount * 1.2);
+  });
+
   test('distance-behind converges to zero at slowest finish (slow-first)', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
